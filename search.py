@@ -5,10 +5,13 @@ __version__ = '0.1'
 __email__ = 'mariolpantunes@gmail.com'
 __status__ = 'Development'
 
-
-import requests
+import os
+import csv
 import logging
-import json
+import requests
+
+
+logger = logging.getLogger(__name__)
 
 
 class CWS:
@@ -39,6 +42,31 @@ class CWS:
             page += 1
             if total >= total_count*0.2:
                 done = True
-            print('({}, {}, {}, {})'.format(page, total, total_count, total_count*0.2))
+            logger.debug('(%s, %s, %s, %s)', page, total, total_count, int(total_count*0.2))
 
         return snippets
+
+
+class CacheSearch:
+    def __init__(self, ws, path):
+        self.ws = ws
+        self.path = path
+    
+    def search(self, query):
+        filename = f'{self.path}/{query}.csv'
+        snippets = []
+        if os.path.exists(filename):
+            logger.debug('Cache file %s does not exist...', filename)
+            with open(filename) as csv_file:
+                reader = csv.reader(csv_file, delimiter=',')
+                for row in reader:
+                    snippets.append(row[0])
+        else:
+            logger.debug('Cache file %s does not exist...', filename)
+            snippets=self.ws.search(query)
+            logger.debug('Snippets loaded from Search Engine')
+            with open(filename, 'w') as csv_file:
+                writer = csv.writer(csv_file, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+                writer.writerows(snippets)
+            logger.debug('Snippets stored in %s', filename)
+        return snippets 

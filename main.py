@@ -5,14 +5,26 @@ __version__ = '0.1'
 __email__ = 'mariolpantunes@gmail.com'
 __status__ = 'Development'
 
-import argparse
+import config
 import logging
+import argparse
 import numpy as np
+from search import CacheSearch, CWS
+
+
+logging.basicConfig(level=logging.DEBUG)
+
+
+logger = logging.getLogger(__name__)
 
 
 def main(args):
-    pass
+    cws = CWS(config.key)
+    cache_ws = CacheSearch( cws, 'cache')
 
+    snippets = cache_ws.search('car')
+
+    print(snippets)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Semantic playground')
