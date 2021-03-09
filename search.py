@@ -56,17 +56,20 @@ class CacheSearch:
         filename = f'{self.path}/{query}.csv'
         snippets = []
         if os.path.exists(filename):
-            logger.debug('Cache file %s does not exist...', filename)
-            with open(filename) as csv_file:
-                reader = csv.reader(csv_file, delimiter=',')
+            logger.info('Cache file %s', filename)
+            with open(filename, 'rt', newline='', encoding='utf-8') as csv_file:
+                reader = csv.reader(csv_file, delimiter=',', quotechar='"')
                 for row in reader:
                     snippets.append(row[0])
         else:
             logger.debug('Cache file %s does not exist...', filename)
             snippets=self.ws.search(query)
             logger.debug('Snippets loaded from Search Engine')
-            with open(filename, 'w') as csv_file:
+            with open(filename, 'wt', newline='', encoding='utf-8') as csv_file:
                 writer = csv.writer(csv_file, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
-                writer.writerows(snippets)
+                for s in snippets:
+                    #setence = s.replace('\r','').replace('\n','')
+                    #setence = setence.encode('utf-8').decode()
+                    writer.writerow([s])
             logger.debug('Snippets stored in %s', filename)
         return snippets 
