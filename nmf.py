@@ -27,7 +27,7 @@ def cost(V, W, H):
     return np.linalg.norm(A_WH_mask, 2)
 
 
-def annls(V, k, num_iter = 1000):
+def nnls(V, k, num_iter = 1000):
     rows, columns = V.shape
     
     # Create W and H
@@ -35,9 +35,6 @@ def annls(V, k, num_iter = 1000):
     H = np.abs(np.random.uniform(low=0, high=1, size=(k, columns)))
     W = np.divide(W, k*W.max())
     H = np.divide(H, k*H.max())
-
-    logger.debug(W)
-    logger.debug(H)
 
     # Optimize
     num_display_cost = max(int(num_iter/10), 1)

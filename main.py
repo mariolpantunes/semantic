@@ -14,11 +14,11 @@ import argparse
 import numpy as np
 import matplotlib.pyplot as plt
 from search import CacheSearch, CWS
-from dp import DPW
+from dp import DPW, nmf_optimization
 import nmf
 
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 
 
 logger = logging.getLogger(__name__)
@@ -33,7 +33,7 @@ def extract_neighborhood(target_word, ws, n):
     stop_words = set(nltk.corpus.stopwords.words('english')) 
     for s in snippets:
         temp_tokens = nltk.word_tokenize(s)
-        filtered_tokens = [w.lower() for w in temp_tokens if not w in stop_words and w.isalpha()] 
+        filtered_tokens = [w.lower() for w in temp_tokens if not w in stop_words and w.isalpha() and len(w) > 3] 
         tokens.extend(filtered_tokens)
     logger.debug(tokens)
     logger.debug('Total number of tokens: %s', len(tokens))
@@ -68,17 +68,10 @@ def extract_neighborhood(target_word, ws, n):
 
 
 def main(args):
-    V = np.array([[1, 0, 0.7], [0, 1, 0.8], [0.7, 0.8, 1]])
-    logger.info(V)
-
-    W, H = nmf.annls(V, 3)
-    logger.info(W)
-    logger.info(H)
-
-    logger.info(np.dot(W, H))
-
-    '''cws = CWS(config.key)
+    cws = CWS(config.key)
     cache_ws = CacheSearch(cws, 'cache')
+
+    dpw_cache = {}
 
     reader = csv.reader(args.d, delimiter=',')
     for row in reader:
@@ -90,15 +83,21 @@ def main(args):
 
         #logger.info('%s (%s)', word_a, len(word_a_neighborhood))
         #logger.info('%s (%s)', word_b, len(word_b_neighborhood))
-        dpw_a = DPW(word_a_neighborhood)
-        dpw_b = DPW(word_b_neighborhood)
+        dpw_a = DPW(word_a, word_a_neighborhood)
+        logger.info(dpw_a)
+        dpw_b = DPW(word_b, word_b_neighborhood)
+        logger.info(dpw_b)
+
+        nmf_optimization(dpw_a, dpw_cache)
+        
         score= dpw_a.similarity(dpw_b)
         #print(f'{word_a},{word_b},{score}')
-        print(score)'''
+        print(score)
+        return
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Semantic playground')
-    #parser.add_argument('-d', type=argparse.FileType('r'), required=True, help='dataset file (csv)')
+    parser.add_argument('-d', type=argparse.FileType('r'), required=True, help='dataset file (csv)')
     parser.add_argument('-n', type=int, help='neighborhood size', default=3)
     #parser.add_argument('--r2', type=float, help='R2', )
     #parser.add_argument('-t', type=float, help='Sensitivity', default=1.0)
