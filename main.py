@@ -14,6 +14,8 @@ import argparse
 import numpy as np
 import matplotlib.pyplot as plt
 from search import CacheSearch, CWS
+from dp import DPW
+import nmf
 
 
 logging.basicConfig(level=logging.INFO)
@@ -24,20 +26,22 @@ logger = logging.getLogger(__name__)
 
 def extract_neighborhood(target_word, ws, n):
     snippets = ws.search(target_word)
+    ps = nltk.stem.PorterStemmer()
+    stem_target_word = ps.stem(target_word)
     tokens = []
     # Text Mining Pipeline
     stop_words = set(nltk.corpus.stopwords.words('english')) 
     for s in snippets:
         temp_tokens = nltk.word_tokenize(s)
-        filtered_tokens = [w.lower() for w in temp_tokens if not w in stop_words and w.isalpha()]
+        filtered_tokens = [w.lower() for w in temp_tokens if not w in stop_words and w.isalpha()] 
         tokens.extend(filtered_tokens)
     logger.debug(tokens)
     logger.debug('Total number of tokens: %s', len(tokens))
     # Search for target word
     neighborhood = {} 
     for i in range(0, len(tokens)):
-        t = tokens[i]
-        if t == target_word:
+        st = ps.stem(tokens[i])
+        if st == stem_target_word:
             neighbors = tokens[i-n: i+n+1]
             logger.debug(neighbors)
             for t in neighbors:
@@ -64,8 +68,17 @@ def extract_neighborhood(target_word, ws, n):
 
 
 def main(args):
-    cws = CWS(config.key)
-    cache_ws = CacheSearch( cws, 'cache')
+    V = np.array([[1, 0, 0.7], [0, 1, 0.8], [0.7, 0.8, 1]])
+    logger.info(V)
+
+    W, H = nmf.annls(V, 3)
+    logger.info(W)
+    logger.info(H)
+
+    logger.info(np.dot(W, H))
+
+    '''cws = CWS(config.key)
+    cache_ws = CacheSearch(cws, 'cache')
 
     reader = csv.reader(args.d, delimiter=',')
     for row in reader:
@@ -75,13 +88,17 @@ def main(args):
         word_a_neighborhood = extract_neighborhood(word_a, cache_ws, args.n)
         word_b_neighborhood = extract_neighborhood(word_b, cache_ws, args.n)
 
-        logger.info('%s (%s)', word_a, len(word_a_neighborhood))
-        logger.info('%s (%s)', word_b, len(word_b_neighborhood))
-
+        #logger.info('%s (%s)', word_a, len(word_a_neighborhood))
+        #logger.info('%s (%s)', word_b, len(word_b_neighborhood))
+        dpw_a = DPW(word_a_neighborhood)
+        dpw_b = DPW(word_b_neighborhood)
+        score= dpw_a.similarity(dpw_b)
+        #print(f'{word_a},{word_b},{score}')
+        print(score)'''
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Semantic playground')
-    parser.add_argument('-d', type=argparse.FileType('r'), required=True, help='dataset file (csv)')
+    #parser.add_argument('-d', type=argparse.FileType('r'), required=True, help='dataset file (csv)')
     parser.add_argument('-n', type=int, help='neighborhood size', default=3)
     #parser.add_argument('--r2', type=float, help='R2', )
     #parser.add_argument('-t', type=float, help='Sensitivity', default=1.0)

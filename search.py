@@ -6,7 +6,6 @@ __email__ = 'mariolpantunes@gmail.com'
 __status__ = 'Development'
 
 import os
-import csv
 import logging
 import requests
 
@@ -56,20 +55,14 @@ class CacheSearch:
         filename = f'{self.path}/{query}.csv'
         snippets = []
         if os.path.exists(filename):
-            logger.info('Cache file %s', filename)
-            with open(filename, 'rt', newline='', encoding='utf-8') as csv_file:
-                reader = csv.reader(csv_file, delimiter=',', quotechar='"')
-                for row in reader:
-                    snippets.append(row[0])
+            logger.debug('Cache file %s', filename)
+            with open(filename, 'rt', newline='', encoding='utf-8') as file:
+                snippets = file.readlines()
         else:
             logger.debug('Cache file %s does not exist...', filename)
             snippets=self.ws.search(query)
             logger.debug('Snippets loaded from Search Engine')
-            with open(filename, 'wt', newline='', encoding='utf-8') as csv_file:
-                writer = csv.writer(csv_file, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
-                for s in snippets:
-                    #setence = s.replace('\r','').replace('\n','')
-                    #setence = setence.encode('utf-8').decode()
-                    writer.writerow([s])
+            with open(filename, 'wt', newline='', encoding='utf-8') as file:
+                file.writelines(snippets)
             logger.debug('Snippets stored in %s', filename)
         return snippets 
