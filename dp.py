@@ -17,6 +17,9 @@ from sklearn.cluster import KMeans
 from sklearn.metrics import silhouette_score,  davies_bouldin_score
 
 
+import skfuzzy as fuzz
+
+
 logger = logging.getLogger(__name__)
 
 
@@ -210,7 +213,7 @@ def nmf_optimization(dpw: DPW, d: int, dpw_cache: DPW_Cache):
     logger.debug(V[idx_word, :])
     
     k = len(names)//d
-    W, H = nmf.nnls(V, k)
+    W, H = nmf.nmf_nnls(V, k)
     new_values = np.dot(W, H)[idx_word, :]
 
     #Vr, *_ = nmf.rwnmf(V, k)
@@ -227,7 +230,48 @@ def nmf_optimization(dpw: DPW, d: int, dpw_cache: DPW_Cache):
 
     return new_dpw
 
-def learn_dpwc(dpw: DPW, dpw_cache: DPW_Cache):
+
+def build_neighborhoods(names, values, n, labels):
+    neighborhoods = [[{}, 0] for i in range(n)]
+    for i in range(len(labels)):
+       n, _ = neighborhoods[labels[i]]
+       n[names[i][0]] = values[i]
+       neighborhoods[labels[i]][1] += values[i]
+    
+    # Rescale and normalize affinity
+    sum_aff  = 0
+    for i in range(len(neighborhoods)):
+        neighborhoods[i][1] /= len(neighborhoods[i][0])
+        sum_aff += neighborhoods[i][1]
+    
+    for i in range(len(neighborhoods)):
+        neighborhoods[i][1] /= sum_aff
+    
+    return neighborhoods
+
+
+def build_neighborhoods_fuzzy(names, values, weights):
+    neighborhoods = [[{}, a] for a, _ in weights]
+
+    for c in range(len(weights)):
+        a, w = weights[c]
+        n, _ = neighborhoods[c]
+        for i in range(len(w)):
+            n[names[i][0]] = values[i] * w[i]
+    
+    return neighborhoods
+
+
+def build_fuzzy_weights(u, idx_word):
+    weights = []
+    for i in range(len(u)):
+        w = u[i]
+        aff = w[idx_word]
+        weights.append((aff, w))
+    return weights
+
+
+def learn_dpwc(dpw: DPW, d: int, dpw_cache: DPW_Cache):
     # pre-load all neighboors
     names = dpw.get_names()
     for s, w in names:
@@ -251,16 +295,23 @@ def learn_dpwc(dpw: DPW, dpw_cache: DPW_Cache):
             dpw_j = dpw_cache[names[j][1]]
             V[i,j] = max(dpw_i[names[j][0]], dpw_j[names[i][0]])
     
-    #k = len(names)//2
-    #W, H = nmf.nnls(V, k)
-    #V = np.dot(W, H)
-
     values = V[idx_word, :]
+    
+    k = len(names)//d
+    W, H = nmf.nmf_nnls(V, k)
+    VR = np.dot(W, H)
 
-    best_score = 1.0
-    best_n = 0
-    labels = None
+    values_nmf = VR[idx_word, :]
 
+    best_score = best_score_nmf = 1.0
+    best_n = best_n_nmf = 0
+    labels = labels_nmf = None
+
+    best_fpc = best_fpc_nmf = 0.0
+    best_u = best_u_nmf = 0
+
+
+    # K-means and Fuzzy C-Means
     for n in range(2, len(names)-1):
         km = KMeans(n_clusters=n, init='k-means++')
         cluster_labels = km.fit_predict(V)
@@ -270,23 +321,44 @@ def learn_dpwc(dpw: DPW, dpw_cache: DPW_Cache):
             best_n = n
             best_score = score
             labels = cluster_labels
-    logger.debug('Labels: %s (%s; %s)', labels, best_score, best_n)
-    logger.debug('Names: %s', names)
 
-    neighborhoods = [[{}, 0] for i in range(best_n)]
-    for i in range(len(labels)):
-       n, _ = neighborhoods[labels[i]]
-       n[names[i][0]] = values[i]
-       neighborhoods[labels[i]][1] += values[i]
-    
-    # Rescale and normalize affinity
-    sum_aff  = 0
-    for i in range(len(neighborhoods)):
-        neighborhoods[i][1] /= len(neighborhoods[i][0])
-        sum_aff += neighborhoods[i][1]
-    
-    for i in range(len(neighborhoods)):
-        neighborhoods[i][1] /= sum_aff
+        km_nmf = KMeans(n_clusters=n, init='k-means++')
+        cluster_labels_nmf = km.fit_predict(VR)
+        score_nmf = davies_bouldin_score(VR, cluster_labels_nmf)
+        if score_nmf < best_score_nmf:
+            best_n_nmf = n
+            best_score_nmf = score
+            labels_nmf = cluster_labels
+        
+        _, u, _, _, _, _, fpc = fuzz.cluster.cmeans(V, n, 2, error=0.005, maxiter=1000, init=None)
 
-    logger.debug(neighborhoods)
-    return DPWC(dpw.word, dpw.names, neighborhoods)
+        if fpc > best_fpc:
+            best_fpc = fpc
+            best_u = u
+        
+        _, u, _, _, _, _, fpc = fuzz.cluster.cmeans(VR, n, 2, error=0.005, maxiter=1000, init=None)
+
+        if fpc > best_fpc:
+            best_fpc_nmf = fpc
+            best_u_nmf = u
+
+
+    #logger.debug('Labels: %s (%s; %s)', labels, best_score, best_n)
+    #logger.debug('Names: %s', names)
+
+    neighborhoods_kmeans = build_neighborhoods(names, values, best_n, labels)
+    neighborhoods_kmeans_nmf = build_neighborhoods(names, values_nmf, best_n_nmf, labels_nmf)
+
+    # Fuzzy 
+    weights = build_fuzzy_weights(best_u, idx_word)
+    weights_nmf = build_fuzzy_weights(best_u_nmf, idx_word)
+    neighborhoods_fuzzy = build_neighborhoods_fuzzy(names, values, weights)
+    neighborhoods_fuzzy_nmf = build_neighborhoods_fuzzy(names, values_nmf, weights_nmf)
+
+    # Build DPWCs
+    dpwc = (DPWC(dpw.word, dpw.names, neighborhoods_kmeans),
+    DPWC(dpw.word, dpw.names, neighborhoods_kmeans_nmf),
+    DPWC(dpw.word, dpw.names, neighborhoods_fuzzy),
+    DPWC(dpw.word, dpw.names, neighborhoods_fuzzy_nmf))
+
+    return dpwc

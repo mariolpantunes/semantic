@@ -8,7 +8,7 @@ __status__ = 'Development'
 
 import logging
 import numpy as np
-import scipy
+from scipy.optimize import nnls
 
 
 logger = logging.getLogger(__name__)
@@ -27,7 +27,7 @@ def cost(V, W, H):
     return np.linalg.norm(A_WH_mask, 2)
 
 
-def nnls(V, k, num_iter=2000):
+def nmf_nnls(V, k, num_iter=1000):
     rows, columns = V.shape
 
     # Create W and H
@@ -43,11 +43,11 @@ def nnls(V, k, num_iter=2000):
             # Learn H, given A and W
             for j in range(columns):
                 mask_rows = V[:, j] > 0.0  # pd.Series(A[:,j]).notnull()
-                H[:, j] = scipy.optimize.nnls(W[mask_rows], V[:, j][mask_rows])[0]
+                H[:, j] = nnls(W[mask_rows], V[:, j][mask_rows])[0]
         else:
             for j in range(rows):
                 mask_rows = V[j, :] > 0.0  # pd.Series(A[j,:]).notnull()
-                W[j, :] = scipy.optimize.nnls(H.transpose()[mask_rows], V[j, :][mask_rows])[0]
+                W[j, :] = nnls(H.transpose()[mask_rows], V[j, :][mask_rows])[0]
         #WH = np.dot(W, H)
         #c = cost(V, W, H)
         #if i % num_display_cost == 0:
@@ -56,16 +56,21 @@ def nnls(V, k, num_iter=2000):
     return W, H
 
 # regularized non-negative matrix factorization
-def rwnmf(X, k, alpha=0.1, tol_fit_improvement=1e-4, tol_fit_error=1e-4, num_iter=500):
+def rwnmf(X, k, alpha=0.1, tol_fit_improvement=1e-4, tol_fit_error=1e-4, num_iter=1000):
     # applies regularized weighted nmf to matrix X with k factors
     # ||X-UV^T||
-    eps = np.finfo(np.float).eps
+    eps = np.finfo(float).eps
     early_stop = False
 
     # get observations matrix W
     #W = np.isnan(X)
-    # X[W] = 0  # set missing entries as 0
+    #print('W')
+    #print(W)
+    #X[W] = 0  # set missing entries as 0
+    #print(X)
     #W = ~W
+    #print('~W')
+    #print(W)
     W = X > 0.0
 
     # initialize factor matrices
@@ -137,3 +142,19 @@ def matrix_factorization(R, P, Q, K, steps=5000, alpha=0.0002, beta=0.02):
         if e < 0.001:
             break
     return P, Q.T
+
+
+
+#V = np.array([[1,0,0.3],[0,1,.2],[0,.3,1]])
+#print(V)
+#W,H = nmf_nnls(V, 3)
+#VR = np.dot(W,H)
+#print(VR)
+#print(f'nnls ({cost(V, W, H)})')
+
+#print()
+#V[V == 0] = np.nan
+#Xr, U, V, error = rwnmf(V, 3)
+#print(Xr)
+#print(f'rwnmf ({error})')
+#print(f'rwnmf ({cost(V, W, H.T)})')
