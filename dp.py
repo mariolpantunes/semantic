@@ -9,11 +9,14 @@ __status__ = 'Development'
 import nmf
 import copy
 import nltk
+import scipy
 import pprint
 import logging
 import numpy as np
-from typing import List, Dict, Tuple
+#import matplotlib.pyplot as plt
 from sklearn.cluster import KMeans
+from scipy.cluster.hierarchy import linkage
+from typing import List, Dict, Tuple
 from sklearn.metrics import silhouette_score,  davies_bouldin_score
 
 
@@ -232,6 +235,9 @@ def nmf_optimization(dpw: DPW, d: int, dpw_cache: DPW_Cache):
 
 
 def build_neighborhoods(names, values, n, labels):
+    if max(labels) >= n:
+        raise Exception(f'Labels {labels} should not have value bigger than n ({n})')
+
     neighborhoods = [[{}, 0] for i in range(n)]
     for i in range(len(labels)):
        n, _ = neighborhoods[labels[i]]
@@ -271,7 +277,11 @@ def build_fuzzy_weights(u, idx_word):
     return weights
 
 
-def learn_dpwc(dpw: DPW, d: int, dpw_cache: DPW_Cache):
+def rank(array, reverse=False):
+    return [sorted(array, reverse=reverse).index(x) for x in array]
+
+
+def learn_dpwc(dpw: DPW, d: int, dpw_cache: DPW_Cache, r=3):
     # pre-load all neighboors
     names = dpw.get_names()
     for s, w in names:
@@ -295,25 +305,52 @@ def learn_dpwc(dpw: DPW, d: int, dpw_cache: DPW_Cache):
             dpw_j = dpw_cache[names[j][1]]
             V[i,j] = max(dpw_i[names[j][0]], dpw_j[names[i][0]])
     
+    sum_of_rows = V.sum(axis=1)
+    V = V / sum_of_rows[:, np.newaxis]
+    np.fill_diagonal(V, 1)
+
     values = V[idx_word, :]
+    D = 1.0 - V
+    
     
     k = len(names)//d
     W, H = nmf.nmf_nnls(V, k)
+    best_cost = nmf.cost(V, W, H)
+    for i in range(r):
+        tW, tH = nmf.nmf_nnls(V, k)
+        c = nmf.cost(V, W, H)
+        if c < best_cost:
+            c = best_cost
+            W = tW
+            H = tH
     VR = np.dot(W, H)
 
+    sum_of_rows = VR.sum(axis=1)
+    VR = VR / sum_of_rows[:, np.newaxis]
+    np.fill_diagonal(VR, 1)
+    D_nmf = 1.0 - VR
     values_nmf = VR[idx_word, :]
 
-    best_score = best_score_nmf = 1.0
+    best_score = best_score_nmf = -1.0
     best_n = best_n_nmf = 0
     labels = labels_nmf = None
 
     best_fpc = best_fpc_nmf = 0.0
     best_u = best_u_nmf = 0
 
+    scores = []
+    scores_nmf = []
+
+    #votes = np.zeros(len(names)-2)
+    #votes_nmf = np.zeros(len(names)-2)
+
+    # Compute HC
+    ddgm = linkage(D, method="average")
+    ddgm_nmf = linkage(D_nmf, method="average")
 
     # K-means and Fuzzy C-Means
     for n in range(2, len(names)-1):
-        km = KMeans(n_clusters=n, init='k-means++')
+        '''km = KMeans(n_clusters=n, init='k-means++')
         cluster_labels = km.fit_predict(V)
         #score = silhouette_score(V, cluster_labels)
         score = davies_bouldin_score(V, cluster_labels)
@@ -323,13 +360,31 @@ def learn_dpwc(dpw: DPW, d: int, dpw_cache: DPW_Cache):
             labels = cluster_labels
 
         km_nmf = KMeans(n_clusters=n, init='k-means++')
-        cluster_labels_nmf = km.fit_predict(VR)
+        cluster_labels_nmf = km_nmf.fit_predict(VR)
         score_nmf = davies_bouldin_score(VR, cluster_labels_nmf)
         if score_nmf < best_score_nmf:
             best_n_nmf = n
             best_score_nmf = score
-            labels_nmf = cluster_labels
+            labels_nmf = cluster_labels'''
         
+        cluster_labels = scipy.cluster.hierarchy.fcluster(ddgm, n, criterion="maxclust")
+        cluster_labels_nmf = scipy.cluster.hierarchy.fcluster(ddgm_nmf, n, criterion="maxclust")
+
+        score = silhouette_score(D, cluster_labels, metric='precomputed')
+        scores.append(score)
+        if score > best_score:
+            best_n = n
+            best_score = score
+            labels = cluster_labels
+        
+        score_nmf = silhouette_score(D_nmf, cluster_labels_nmf, metric='precomputed')
+        scores_nmf.append(score_nmf)
+        if score_nmf > best_score_nmf:
+            best_n_nmf = n
+            best_score_nmf = score
+            labels_nmf = cluster_labels
+
+        #Fuzzy
         _, u, _, _, _, _, fpc = fuzz.cluster.cmeans(V, n, 2, error=0.005, maxiter=1000, init=None)
 
         if fpc > best_fpc:
@@ -338,14 +393,15 @@ def learn_dpwc(dpw: DPW, d: int, dpw_cache: DPW_Cache):
         
         _, u, _, _, _, _, fpc = fuzz.cluster.cmeans(VR, n, 2, error=0.005, maxiter=1000, init=None)
 
-        if fpc > best_fpc:
+        if fpc > best_fpc_nmf:
             best_fpc_nmf = fpc
             best_u_nmf = u
-
 
     #logger.debug('Labels: %s (%s; %s)', labels, best_score, best_n)
     #logger.debug('Names: %s', names)
 
+    labels = [x-1 for x in labels]
+    labels_nmf = [x-1 for x in labels_nmf]
     neighborhoods_kmeans = build_neighborhoods(names, values, best_n, labels)
     neighborhoods_kmeans_nmf = build_neighborhoods(names, values_nmf, best_n_nmf, labels_nmf)
 

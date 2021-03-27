@@ -85,15 +85,19 @@ def main(args):
             dpwc_a_kmeans, dpwc_a_nmf_kmeans, dpwc_a_fuzzy, dpwc_a_nmf_fuzzy = dpwc_a
             dpwc_b_kmeans, dpwc_b_nmf_kmeans, dpwc_b_fuzzy, dpwc_b_nmf_fuzzy = dpwc_b
 
+            logger.info(dpwc_a_fuzzy)
+            logger.info(dpwc_b_fuzzy)
+
             score_dpwc_kmeans = dpwc_a_kmeans.similarity(dpwc_b_kmeans)
             score_dpwc_nmf_kmeans = dpwc_a_nmf_kmeans.similarity(dpwc_b_nmf_kmeans)
             score_dpwc_fuzzy = dpwc_a_fuzzy.similarity(dpwc_b_fuzzy)
             score_dpwc_nmf_fuzzy = dpwc_a_nmf_fuzzy.similarity(dpwc_b_nmf_fuzzy)
             
-            #print(f'{word_a} {word_b} {score_dpw} {score_dpw_nmf}')
+            #print(f'{word_a} {word_b} {score_dpw} {score_dpw_nmf} {score_dpwc_fuzzy} {score_dpwc_nmf_fuzzy}')
             fields = [score_dpw, score_dpw_nmf, score_dpwc_kmeans, score_dpwc_nmf_kmeans, score_dpwc_fuzzy, score_dpwc_nmf_fuzzy]
             writer.writerow(fields)
             count += 1
+    print()
         
 
 if __name__ == '__main__':
