@@ -88,7 +88,14 @@ def dpw_similarity(n_a: Dict, n_b: Dict) -> float:
         a = np.array(vector_a)
         b = np.array(vector_b)
 
-        return np.dot(a, b)/(np.linalg.norm(a)*np.linalg.norm(b))
+        norm_a = np.linalg.norm(a)
+        norm_b = np.linalg.norm(b)
+
+        if norm_a == 0 or norm_b == 0:
+            raise Exception(f'Dict_A\n{n_a}\nDict_B\n{n_b}\nFeatures\n{features}\nA: {a}\nB: {b}')
+            return 0.0
+
+        return np.dot(a, b)/(norm_a*norm_b)
 
 
 class DPW:
