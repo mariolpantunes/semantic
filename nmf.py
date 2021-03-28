@@ -27,12 +27,16 @@ def cost(V, W, H):
     return np.linalg.norm(A_WH_mask, 2)
 
 
-def nmf_nnls(V, k, num_iter=1000):
+def nmf_nnls(V, k, num_iter=1000, seed=None):
     rows, columns = V.shape
 
+    # define the random seed
+    if seed is not None:
+        np.random.seed(seed)
+
     # Create W and H
-    W = np.abs(np.random.uniform(low=0, high=1, size=(rows, k)))
-    H = np.abs(np.random.uniform(low=0, high=1, size=(k, columns)))
+    W = np.abs(np.random.uniform(size=(rows, k)))
+    H = np.abs(np.random.uniform(size=(k, columns)))
     W = np.divide(W, k*W.max())
     H = np.divide(H, k*H.max())
 
@@ -142,19 +146,3 @@ def matrix_factorization(R, P, Q, K, steps=5000, alpha=0.0002, beta=0.02):
         if e < 0.001:
             break
     return P, Q.T
-
-
-
-#V = np.array([[1,0,0.3],[0,1,.2],[0,.3,1]])
-#print(V)
-#W,H = nmf_nnls(V, 3)
-#VR = np.dot(W,H)
-#print(VR)
-#print(f'nnls ({cost(V, W, H)})')
-
-#print()
-#V[V == 0] = np.nan
-#Xr, U, V, error = rwnmf(V, 3)
-#print(Xr)
-#print(f'rwnmf ({error})')
-#print(f'rwnmf ({cost(V, W, H.T)})')

@@ -12,7 +12,7 @@ import logging
 import argparse
 from pathlib import Path
 from search import CacheSearch, CWS
-from dp import DPW_Cache, nmf_optimization, learn_dpwc
+from dp import DPW_Cache, nmf_optimization, learn_dpwc, latent_analysis
 from utils import progress_bar
 
 
@@ -44,7 +44,7 @@ def main(args):
             word_a = row[0]
             word_b = row[1]
 
-            progress_bar(count, 30, status=f'({word_a}, {word_b})')
+            progress_bar(count, 30, status=f'({word_a:12}, {word_b:12})')
 
             # DPW RAW
             dpw_a = dpw_cache[word_a] 
@@ -53,15 +53,21 @@ def main(args):
             logger.info(dpw_b)
             score_dpw = dpw_a.similarity(dpw_b)
 
+            # Create Latent Features
+            Va, Vra = None, None #latent_analysis(dpw_a, args.k, dpw_cache)
+            Vb, Vrb = None, None #latent_analysis(dpw_b, args.k, dpw_cache)
+
             # DPW with Latent Features
             if dpw_a.word[1] not in dpw_cache_nmf:
-                dpw_a = nmf_optimization(dpw_a, args.k, dpw_cache)
+                Va, Vra = latent_analysis(dpw_a, args.k, dpw_cache)
+                dpw_a = nmf_optimization(dpw_a, Vra)
                 dpw_cache_nmf[dpw_a.word[1]] = dpw_a
             else:
                 dpw_a = dpw_cache_nmf[dpw_a.word[1]]
 
             if dpw_b.word[1] not in dpw_cache_nmf:
-                dpw_b = nmf_optimization(dpw_b, args.k, dpw_cache)
+                Vb, Vrb = latent_analysis(dpw_b, args.k, dpw_cache)
+                dpw_b = nmf_optimization(dpw_b, Vrb)
                 dpw_cache_nmf[dpw_b.word[1]] = dpw_b
             else:
                 dpw_b = dpw_cache_nmf[dpw_b.word[1]]
@@ -70,13 +76,13 @@ def main(args):
 
             # DPWC and variations
             if dpw_a.word[1] not in dpwc_cache:
-                dpwc_a = learn_dpwc(dpw_a, args.k, dpw_cache)
+                dpwc_a = learn_dpwc(dpw_a, Va, Vra)
                 dpwc_cache[dpw_a.word[1]] = dpwc_a
             else:
                 dpwc_a = dpwc_cache[dpw_a.word[1]]
 
             if dpw_b.word[1] not in dpwc_cache:
-                dpwc_b = learn_dpwc(dpw_b, args.k, dpw_cache)
+                dpwc_b = learn_dpwc(dpw_b, Vb, Vrb)
                 dpwc_cache[dpw_b.word[1]] = dpwc_b
             else:
                 dpwc_b = dpwc_cache[dpw_b.word[1]]
@@ -97,6 +103,7 @@ def main(args):
             fields = [score_dpw, score_dpw_nmf, score_dpwc_kmeans, score_dpwc_nmf_kmeans, score_dpwc_fuzzy, score_dpwc_nmf_fuzzy]
             writer.writerow(fields)
             count += 1
+    progress_bar(count, 30, status=f'({word_a:12}, {word_b:12})')
     print()
         
 
