@@ -132,6 +132,9 @@ class DPW:
         else:
             return 0
     
+    def __len__(self):
+        return len(self.neighborhood)
+    
     def __str__(self):
         return f'Profile: {self.word}\nNeighborhood: {self.neighborhood}\nNames: {self.names}'
     

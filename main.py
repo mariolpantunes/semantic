@@ -14,6 +14,7 @@ from pathlib import Path
 from search import CacheSearch, CWS
 from dp import DPW_Cache, nmf_optimization, learn_dpwc
 from utils import progress_bar
+import numpy as np
 
 
 #logging.basicConfig(level=logging.INFO)
@@ -27,13 +28,15 @@ def main(args):
     dpw_cache     = DPW_Cache(args.n, cache_ws)
     dpw_cache_nmf = {}
     dpwc_cache    = {}
-
+    
     filename = Path(args.d).resolve().stem
     output_filename = f'{filename}_{args.n}_{args.k}.csv'
 
     count = 0
 
     header = ['raw', 'nmf', 'dpwc', 'dpwc_nmf', 'dpwc_fuzzy', 'dpwc_fuzzy_nmf']
+
+    lengths = []
 
     with open(args.d, 'r') as in_csv, open(output_filename , 'w') as out_csv:
         reader = csv.reader(in_csv, delimiter=',')
@@ -51,9 +54,13 @@ def main(args):
             logger.info(dpw_a)
             dpw_b = dpw_cache[word_b] 
             logger.info(dpw_b)
-            score_dpw = dpw_a.similarity(dpw_b)
+            
+            lengths.append(len(dpw_a))
+            lengths.append(len(dpw_b))
+            
+            #score_dpw = dpw_a.similarity(dpw_b)
 
-            # DPW with Latent Features
+            '''# DPW with Latent Features
             if dpw_a.word[1] not in dpw_cache_nmf:
                 dpw_a = nmf_optimization(dpw_a, args.k, dpw_cache)
                 dpw_cache_nmf[dpw_a.word[1]] = dpw_a
@@ -95,9 +102,12 @@ def main(args):
             
             #print(f'{word_a} {word_b} {score_dpw} {score_dpw_nmf} {score_dpwc_fuzzy} {score_dpwc_nmf_fuzzy}')
             fields = [score_dpw, score_dpw_nmf, score_dpwc_kmeans, score_dpwc_nmf_kmeans, score_dpwc_fuzzy, score_dpwc_nmf_fuzzy]
-            writer.writerow(fields)
+            writer.writerow(fields)'''
             count += 1
     print()
+
+    lengths = np.array(lengths)
+    print(f'average: {np.average(lengths)}')
         
 
 if __name__ == '__main__':
