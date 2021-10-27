@@ -27,12 +27,16 @@ def cost(V, W, H):
     return np.linalg.norm(A_WH_mask, 2)
 
 
-def nmf_nnls(V, k, num_iter=1000):
+def nmf_nnls(V, k, num_iter=1000, seed=None):
     rows, columns = V.shape
 
+    # define the random seed
+    if seed is not None:
+        np.random.seed(seed)
+
     # Create W and H
-    W = np.abs(np.random.uniform(low=0, high=1, size=(rows, k)))
-    H = np.abs(np.random.uniform(low=0, high=1, size=(k, columns)))
+    W = np.abs(np.random.uniform(size=(rows, k)))
+    H = np.abs(np.random.uniform(size=(k, columns)))
     W = np.divide(W, k*W.max())
     H = np.divide(H, k*H.max())
 
@@ -50,12 +54,14 @@ def nmf_nnls(V, k, num_iter=1000):
                 W[j, :] = nnls(H.transpose()[mask_rows], V[j, :][mask_rows])[0]
         #WH = np.dot(W, H)
         #c = cost(V, W, H)
-        #if i % num_display_cost == 0:
+        # if i % num_display_cost == 0:
         #    logger.debug('%s: %s', i, c)
 
     return W, H
 
 # regularized non-negative matrix factorization
+
+
 def rwnmf(X, k, alpha=0.1, tol_fit_improvement=1e-4, tol_fit_error=1e-4, num_iter=1000):
     # applies regularized weighted nmf to matrix X with k factors
     # ||X-UV^T||
@@ -64,18 +70,19 @@ def rwnmf(X, k, alpha=0.1, tol_fit_improvement=1e-4, tol_fit_error=1e-4, num_ite
 
     # get observations matrix W
     #W = np.isnan(X)
-    #print('W')
-    #print(W)
-    #X[W] = 0  # set missing entries as 0
-    #print(X)
+    # print('W')
+    # print(W)
+    # X[W] = 0  # set missing entries as 0
+    # print(X)
     #W = ~W
-    #print('~W')
-    #print(W)
+    # print('~W')
+    # print(W)
     W = X > 0.0
 
     # initialize factor matrices
-    rnd = np.random.RandomState()
-    U = rnd.rand(X.shape[0], k)
+    #rnd = np.random.RandomState()
+    #U = rnd.rand(X.shape[0], k)
+    U = np.random.uniform(size=(X.shape[0], k))
     U = np.maximum(U, eps)
 
     V = np.linalg.lstsq(U, X, rcond=None)[0].T
@@ -115,46 +122,21 @@ def rwnmf(X, k, alpha=0.1, tol_fit_improvement=1e-4, tol_fit_error=1e-4, num_ite
     return Xr, U, V, error
 
 
-def matrix_factorization(R, P, Q, K, steps=5000, alpha=0.0002, beta=0.02):
-    Q = Q.T
+def nmf_mu(X, k, n=1000, l=0.0001):
+    rows, columns = X.shape
 
-    for step in range(steps):
-        for i in range(len(R)):
-            for j in range(len(R[i])):
-                if R[i][j] > 0:
-                    eij = R[i][j] - np.dot(P[i, :], Q[:, j])
-                    for k in range(K):
-                        P[i][k] = P[i][k] + alpha * \
-                            (2 * eij * Q[k][j] - beta * P[i][k])
+    # Create W and H
+    W = np.abs(np.random.uniform(size=(rows, k)))
+    H = np.abs(np.random.uniform(size=(k, columns)))
 
-                        Q[k][j] = Q[k][j] + alpha * \
-                            (2 * eij * P[i][k] - beta * Q[k][j])
-        
-        eR = np.dot(P, Q)
-        e = 0
+    # Create a Mask
+    M = X > 0.0
 
-        for i in range(len(R)):
-            for j in range(len(R[i])):
-                if R[i][j] > 0:
-                    e = e + pow(R[i][j] - np.dot(P[i, :], Q[:, j]), 2)
-                    for k in range(K):
-                        e = e + (beta/2) * (pow(P[i][k], 2) + pow(Q[k][j], 2))
-        if e < 0.001:
-            break
-    return P, Q.T
+    for _ in range(n):
+        W = np.multiply(W, np.divide((M*X)@H.T-l*np.linalg.norm(W, 'fro'), (M*(W@H))@H.T))
+        H = np.multiply(H, np.divide(W.T@X-l*np.linalg.norm(H, 'fro'), W.T@(M*(W@H))))
 
-
-
-#V = np.array([[1,0,0.3],[0,1,.2],[0,.3,1]])
-#print(V)
-#W,H = nmf_nnls(V, 3)
-#VR = np.dot(W,H)
-#print(VR)
-#print(f'nnls ({cost(V, W, H)})')
-
-#print()
-#V[V == 0] = np.nan
-#Xr, U, V, error = rwnmf(V, 3)
-#print(Xr)
-#print(f'rwnmf ({error})')
-#print(f'rwnmf ({cost(V, W, H.T)})')
+    Xr = W @ H
+    cost = np.linalg.norm(X - Xr, 'fro')
+    
+    return W, H, cost

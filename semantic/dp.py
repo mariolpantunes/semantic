@@ -88,7 +88,14 @@ def dpw_similarity(n_a: Dict, n_b: Dict) -> float:
         a = np.array(vector_a)
         b = np.array(vector_b)
 
-        return np.dot(a, b)/(np.linalg.norm(a)*np.linalg.norm(b))
+        norm_a = np.linalg.norm(a)
+        norm_b = np.linalg.norm(b)
+
+        if norm_a == 0 or norm_b == 0:
+            #raise Exception(f'Dict_A\n{n_a}\nDict_B\n{n_b}\nFeatures\n{features}\nA: {a}\nB: {b}')
+            return 0.0
+
+        return np.dot(a, b)/(norm_a*norm_b)
 
 
 class DPW:
@@ -193,44 +200,19 @@ class DPWC:
         return self.__str__()
 
 
-def nmf_optimization(dpw: DPW, d: int, dpw_cache: DPW_Cache):
-    # pre-load all neighboors
+def nmf_optimization(dpw: DPW, Vr):
+    # load names
     names = dpw.get_names()
-    for s, w in names:
-        temp_dpw = dpw_cache[w]
-        if temp_dpw is None:
-            dpw.neighborhood.pop(s, None)
-            dpw.names.pop(s, None)
     
-    # reload names
-    names = dpw.get_names()
-
-    # Create a square matrix
-    V = np.zeros(shape=(len(names), len(names)))
-
     idx_word = names.index(dpw.word)
-
-    # Fill the matrix
-    for i in range(len(names)):
-        for j in range(len(names)):
-            dpw_i = dpw_cache[names[i][1]]
-            dpw_j = dpw_cache[names[j][1]]
-            V[i,j] = max(dpw_i[names[j][0]], dpw_j[names[i][0]])
-    logger.debug(V[idx_word, :])
-    
-    k = len(names)//d
-    W, H = nmf.nmf_nnls(V, k)
-    new_values = np.dot(W, H)[idx_word, :]
-
-    #Vr, *_ = nmf.rwnmf(V, k)
-    #new_values = Vr[idx_word, :]
+    new_values = Vr[idx_word, :]
     
     # update DPW
     new_neighborhood = {}
     for i in range(len(names)):
         new_neighborhood[names[i][0]] = new_values[i]
-    #dpw.neighborhood = new_neighborhood
-
+    
+    # Create new DPW
     new_dpw = copy.copy(dpw)
     new_dpw.neighborhood = new_neighborhood
 
@@ -284,8 +266,8 @@ def rank(array, reverse=False):
     return [sorted(array, reverse=reverse).index(x) for x in array]
 
 
-def learn_dpwc(dpw: DPW, d: int, dpw_cache: DPW_Cache, r=3):
-    # pre-load all neighboors
+def latent_analysis(dpw: DPW, d: int, dpw_cache: DPW_Cache):
+    # pre-load all neighboors and remove neighborhood with weak profiles
     names = dpw.get_names()
     for s, w in names:
         temp_dpw = dpw_cache[w]
@@ -293,47 +275,59 @@ def learn_dpwc(dpw: DPW, d: int, dpw_cache: DPW_Cache, r=3):
             dpw.neighborhood.pop(s, None)
             dpw.names.pop(s, None)
     
-    # reload names
+    # reload names from valid profiles only
     names = dpw.get_names()
+    size_names = len(names)
 
     # Create a square matrix
-    V = np.zeros(shape=(len(names), len(names)))
-
-    idx_word = names.index(dpw.word)
+    V = np.zeros(shape=(size_names, size_names))
 
     # Fill the matrix
-    for i in range(len(names)):
-        for j in range(len(names)):
+    for i in range(0, size_names-1):
+        for j in range(i+1, size_names):
             dpw_i = dpw_cache[names[i][1]]
             dpw_j = dpw_cache[names[j][1]]
-            V[i,j] = max(dpw_i[names[j][0]], dpw_j[names[i][0]])
+            value = max(dpw_i[names[j][0]], dpw_j[names[i][0]])
+            V[i,j] = value
+            V[j,i] = value
     
+    # normalize the similarity matrix
     sum_of_rows = V.sum(axis=1)
     V = V / sum_of_rows[:, np.newaxis]
-    np.fill_diagonal(V, 1)
+    np.fill_diagonal(V, 1.0)
+
+    # Learn the dimensions in latent space and reconstruct into token space
+    k = len(names)//d
+    W, H = nmf.nmf_nnls(V, k, seed=11)
+    Vr = np.dot(W, H)
+
+    # Recreate the simmetric matrix
+    for i in range(0, size_names-1):
+        for j in range(i+1, size_names):
+            value = max(Vr[i,j], Vr[j,i])
+            Vr[i,j] = value
+            Vr[j,i] = value
+
+    # normalize the similarity matrix
+    sum_of_rows = Vr.sum(axis=1)
+    Vr = Vr / sum_of_rows[:, np.newaxis]
+    np.fill_diagonal(Vr, 1)
+
+    return V, Vr
+
+
+def learn_dpwc(dpw: DPW, V, Vr):
+    # load names and the right index
+    names = dpw.get_names()
+    idx_word = names.index(dpw.word)
+    size_names = len(names)
 
     values = V[idx_word, :]
     D = 1.0 - V
     
+    values_nmf = Vr[idx_word, :]
+    D_nmf = 1.0 - Vr
     
-    k = len(names)//d
-    W, H = nmf.nmf_nnls(V, k)
-    best_cost = nmf.cost(V, W, H)
-    for i in range(r):
-        tW, tH = nmf.nmf_nnls(V, k)
-        c = nmf.cost(V, W, H)
-        if c < best_cost:
-            c = best_cost
-            W = tW
-            H = tH
-    VR = np.dot(W, H)
-
-    sum_of_rows = VR.sum(axis=1)
-    VR = VR / sum_of_rows[:, np.newaxis]
-    np.fill_diagonal(VR, 1)
-    D_nmf = 1.0 - VR
-    values_nmf = VR[idx_word, :]
-
     best_score = best_score_nmf = -1.0
     best_n = best_n_nmf = 0
     labels = labels_nmf = None
@@ -344,15 +338,12 @@ def learn_dpwc(dpw: DPW, d: int, dpw_cache: DPW_Cache, r=3):
     scores = []
     scores_nmf = []
 
-    #votes = np.zeros(len(names)-2)
-    #votes_nmf = np.zeros(len(names)-2)
-
     # Compute HC
-    ddgm = linkage(D, method="average")
-    ddgm_nmf = linkage(D_nmf, method="average")
+    ddgm = linkage(D, method='average')
+    ddgm_nmf = linkage(D_nmf, method='average')
 
     # K-means and Fuzzy C-Means
-    for n in range(2, len(names)-1):
+    for n in range(2, size_names-1):
         '''km = KMeans(n_clusters=n, init='k-means++')
         cluster_labels = km.fit_predict(V)
         #score = silhouette_score(V, cluster_labels)
@@ -394,7 +385,7 @@ def learn_dpwc(dpw: DPW, d: int, dpw_cache: DPW_Cache, r=3):
             best_fpc = fpc
             best_u = u
         
-        _, u, _, _, _, _, fpc = fuzz.cluster.cmeans(VR, n, 2, error=0.005, maxiter=1000, init=None)
+        _, u, _, _, _, _, fpc = fuzz.cluster.cmeans(Vr, n, 2, error=0.005, maxiter=1000, init=None)
 
         if fpc > best_fpc_nmf:
             best_fpc_nmf = fpc
