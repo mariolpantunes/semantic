@@ -7,14 +7,15 @@ __status__ = 'Development'
 
 
 import csv
+import tqdm
 import config
 import logging
 import argparse
+
 from pathlib import Path
-from search import CacheSearch, CWS
-from dp import DPW_Cache, nmf_optimization, learn_dpwc, latent_analysis
-from utils import progress_bar
-import numpy as np
+from semantic.search import CacheSearch, CWS
+from semantic.dp import DPW_Cache, nmf_optimization, learn_dpwc, latent_analysis
+
 
 
 #logging.basicConfig(level=logging.INFO)
@@ -43,11 +44,9 @@ def main(args):
         writer = csv.writer(out_csv, delimiter=' ')
         # write the header
         writer.writerow(header)
-        for row in reader:
+        for row in tqdm.tqdm(reader):
             word_a = row[0]
             word_b = row[1]
-
-            progress_bar(count, 30, status=f'({word_a:12}, {word_b:12})')
 
             # DPW RAW
             dpw_a = dpw_cache[word_a] 
@@ -58,7 +57,7 @@ def main(args):
             lengths.append(len(dpw_a))
             lengths.append(len(dpw_b))
             
-            #score_dpw = dpw_a.similarity(dpw_b)
+            score_dpw = dpw_a.similarity(dpw_b)
 
             # Create Latent Features
             Va, Vra = None, None #latent_analysis(dpw_a, args.k, dpw_cache)
@@ -110,11 +109,10 @@ def main(args):
             fields = [score_dpw, score_dpw_nmf, score_dpwc_kmeans, score_dpwc_nmf_kmeans, score_dpwc_fuzzy, score_dpwc_nmf_fuzzy]
             writer.writerow(fields)
             count += 1
-    progress_bar(count, 30, status=f'({word_a:12}, {word_b:12})')
-    print()
+    
 
-    lengths = np.array(lengths)
-    print(f'average: {np.average(lengths)}')
+    #lengths = np.array(lengths)
+    #print(f'average: {np.average(lengths)}')
         
 
 if __name__ == '__main__':

@@ -122,8 +122,12 @@ def rwnmf(X, k, alpha=0.1, tol_fit_improvement=1e-4, tol_fit_error=1e-4, num_ite
     return Xr, U, V, error
 
 
-def nmf_mu(X, k, n=1000, l=0.0001):
+def nmf_mu(X, k, n=1000, l=0.0001, seed=None):
+    if isinstance(seed,int):
+        np.random.seed(seed)
+    
     rows, columns = X.shape
+    eps = np.finfo(float).eps
 
     # Create W and H
     W = np.abs(np.random.uniform(size=(rows, k)))
@@ -134,7 +138,9 @@ def nmf_mu(X, k, n=1000, l=0.0001):
 
     for _ in range(n):
         W = np.multiply(W, np.divide((M*X)@H.T-l*np.linalg.norm(W, 'fro'), (M*(W@H))@H.T))
-        H = np.multiply(H, np.divide(W.T@X-l*np.linalg.norm(H, 'fro'), W.T@(M*(W@H))))
+        W = np.maximum(W, eps)
+        H = np.multiply(H, np.divide(W.T@(M*X)-l*np.linalg.norm(H, 'fro'), W.T@(M*(W@H))))
+        H = np.maximum(H, eps)
 
     Xr = W @ H
     cost = np.linalg.norm(X - Xr, 'fro')

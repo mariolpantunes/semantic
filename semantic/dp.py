@@ -6,18 +6,19 @@ __email__ = 'mariolpantunes@gmail.com'
 __status__ = 'Development'
 
 
-import nmf
+
 import copy
 import nltk
 import scipy
 import pprint
 import logging
 import numpy as np
-#import matplotlib.pyplot as plt
-from sklearn.cluster import KMeans
+
+import semantic.nmf as nmf
+
 from scipy.cluster.hierarchy import linkage
 from typing import List, Dict, Tuple
-from sklearn.metrics import silhouette_score,  davies_bouldin_score
+from sklearn.metrics import silhouette_score, davies_bouldin_score
 
 
 import skfuzzy as fuzz
@@ -298,8 +299,20 @@ def latent_analysis(dpw: DPW, d: int, dpw_cache: DPW_Cache):
 
     # Learn the dimensions in latent space and reconstruct into token space
     k = len(names)//d
-    W, H = nmf.nmf_nnls(V, k, seed=11)
-    Vr = np.dot(W, H)
+    
+    seeds = [3,5,7,11,13]
+    
+    best_W = best_H = None
+    best_cost = float('inf') 
+    for s in seeds:
+        W, H, cost = nmf.nmf_mu(V, k, seed=s)
+        print(f'{cost}/{best_cost}')
+        if cost < best_cost:
+            best_W = W
+            best_H = H
+            best_cost = cost
+    
+    Vr = best_W @ best_H
 
     # Recreate the simmetric matrix
     for i in range(0, size_names-1):
