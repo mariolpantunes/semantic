@@ -57,12 +57,15 @@ def nmf_nnls(V, k, num_iter=1000, seed=None):
         # if i % num_display_cost == 0:
         #    logger.debug('%s: %s', i, c)
 
-    return W, H
+    return W, H, cost(V, W, H)
 
 # regularized non-negative matrix factorization
 
 
-def rwnmf(X, k, alpha=0.1, tol_fit_improvement=1e-4, tol_fit_error=1e-4, num_iter=1000):
+def rwnmf(X, k, alpha=0.1, tol_fit_improvement=1e-4, tol_fit_error=1e-4, num_iter=1000, seed=None):
+    if isinstance(seed,int):
+        np.random.seed(seed)
+    
     # applies regularized weighted nmf to matrix X with k factors
     # ||X-UV^T||
     eps = np.finfo(float).eps
@@ -122,22 +125,33 @@ def rwnmf(X, k, alpha=0.1, tol_fit_improvement=1e-4, tol_fit_error=1e-4, num_ite
     return Xr, U, V, error
 
 
-def nmf_mu(X, k, n=1000, l=0.0001):
+def nmf_mu(X, k, n=1000, l=1E-3, seed=None):
+    if isinstance(seed,int):
+        np.random.seed(seed)
+    
     rows, columns = X.shape
+    eps = np.finfo(float).eps
 
     # Create W and H
     W = np.abs(np.random.uniform(size=(rows, k)))
     H = np.abs(np.random.uniform(size=(k, columns)))
+    W = np.divide(W, k*W.max())
+    H = np.divide(H, k*H.max())
+    W = np.maximum(W, eps)
+    H = np.maximum(H, eps)
 
     # Create a Mask
     M = X > 0.0
-    print(M)
 
     for _ in range(n):
         W = np.multiply(W, np.divide((M*X)@H.T-l*np.linalg.norm(W, 'fro'), (M*(W@H))@H.T))
-        H = np.multiply(H, np.divide(W.T@X-l*np.linalg.norm(H, 'fro'), W.T@(M*(W@H))))
+        W = np.maximum(W, eps)
+        H = np.multiply(H, np.divide(W.T@(M*X)-l*np.linalg.norm(H, 'fro'), W.T@(M*(W@H))))
+        H = np.maximum(H, eps)
 
-    Xr = W @ H
-    cost = np.linalg.norm(X - Xr, 'fro')
+        Xr = W @ H
+        cost = np.linalg.norm(X - Xr, 'fro')
+        if cost <= l:
+            break
     
-    return W, H, cost
+    return Xr, W, H, cost

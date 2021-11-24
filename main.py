@@ -7,16 +7,17 @@ __status__ = 'Development'
 
 
 import csv
+import tqdm
 import config
 import logging
 import argparse
+
 from pathlib import Path
-from search import CacheSearch, CWS
-from dp import DPW_Cache, nmf_optimization, learn_dpwc, latent_analysis
-from utils import progress_bar
+from scipy import stats
+from semantic.search import CacheSearch, CWS
+from semantic.dp import DPW_Cache, nmf_optimization, learn_dpwc, latent_analysis
 
-
-#logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
@@ -29,28 +30,43 @@ def main(args):
     dpwc_cache    = {}
     
     filename = Path(args.d).resolve().stem
+    logger.debug(filename)
     output_filename = f'{filename}_{args.n}_{args.k}.csv'
 
     count = 0
 
-    header = ['raw', 'nmf', 'dpwc', 'dpwc_nmf', 'dpwc_fuzzy', 'dpwc_fuzzy_nmf']
+    #header = ['raw', 'nmf', 'dpwc', 'dpwc_nmf', 'dpwc_fuzzy', 'dpwc_fuzzy_nmf']
+    header = ['raw', 'nmf', 'dpwc', 'dpwc_nmf']
+
+    lengths = []
+
+    raw=[]
+    dpw=[]
+    dpw_nmf=[]
+    dpwc = []
+    dpwc_nmf = []
 
     with open(args.d, 'r') as in_csv, open(output_filename , 'w') as out_csv:
-        reader = csv.reader(in_csv, delimiter=',')
+        #reader = csv.reader(in_csv, delimiter=',')
+        lines = [line for line in in_csv]
         writer = csv.writer(out_csv, delimiter=' ')
         # write the header
         writer.writerow(header)
-        for row in reader:
+        for row in tqdm.tqdm(csv.reader(lines), total=len(lines)):
             word_a = row[0]
             word_b = row[1]
 
-            progress_bar(count, 30, status=f'({word_a:12}, {word_b:12})')
+            raw.append(float(row[2]))
 
             # DPW RAW
             dpw_a = dpw_cache[word_a] 
-            logger.info(dpw_a)
+            logger.debug(dpw_a)
             dpw_b = dpw_cache[word_b] 
-            logger.info(dpw_b)
+            logger.debug(dpw_b)
+            
+            lengths.append(len(dpw_a))
+            lengths.append(len(dpw_b))
+            
             score_dpw = dpw_a.similarity(dpw_b)
 
             # Create Latent Features
@@ -88,23 +104,34 @@ def main(args):
                 dpwc_b = dpwc_cache[dpw_b.word[1]]
 
             # Unpack dpwc version
-            dpwc_a_kmeans, dpwc_a_nmf_kmeans, dpwc_a_fuzzy, dpwc_a_nmf_fuzzy = dpwc_a
-            dpwc_b_kmeans, dpwc_b_nmf_kmeans, dpwc_b_fuzzy, dpwc_b_nmf_fuzzy = dpwc_b
+            #dpwc_a_kmeans, dpwc_a_nmf_kmeans, dpwc_a_fuzzy, dpwc_a_nmf_fuzzy = dpwc_a
+            #dpwc_b_kmeans, dpwc_b_nmf_kmeans, dpwc_b_fuzzy, dpwc_b_nmf_fuzzy = dpwc_b
 
-            logger.info(dpwc_a_fuzzy)
-            logger.info(dpwc_b_fuzzy)
+            dpwc_a_kmeans, dpwc_a_nmf_kmeans = dpwc_a
+            dpwc_b_kmeans, dpwc_b_nmf_kmeans = dpwc_b
 
             score_dpwc_kmeans = dpwc_a_kmeans.similarity(dpwc_b_kmeans)
             score_dpwc_nmf_kmeans = dpwc_a_nmf_kmeans.similarity(dpwc_b_nmf_kmeans)
-            score_dpwc_fuzzy = dpwc_a_fuzzy.similarity(dpwc_b_fuzzy)
-            score_dpwc_nmf_fuzzy = dpwc_a_nmf_fuzzy.similarity(dpwc_b_nmf_fuzzy)
+            #score_dpwc_fuzzy = dpwc_a_fuzzy.similarity(dpwc_b_fuzzy)
+            #score_dpwc_nmf_fuzzy = dpwc_a_nmf_fuzzy.similarity(dpwc_b_nmf_fuzzy)
             
             #print(f'{word_a} {word_b} {score_dpw} {score_dpw_nmf} {score_dpwc_fuzzy} {score_dpwc_nmf_fuzzy}')
-            fields = [score_dpw, score_dpw_nmf, score_dpwc_kmeans, score_dpwc_nmf_kmeans, score_dpwc_fuzzy, score_dpwc_nmf_fuzzy]
+            #fields = [score_dpw, score_dpw_nmf, score_dpwc_kmeans, score_dpwc_nmf_kmeans, score_dpwc_fuzzy, score_dpwc_nmf_fuzzy]
+            fields = [score_dpw, score_dpw_nmf, score_dpwc_kmeans, score_dpwc_nmf_kmeans]
+            dpw.append(score_dpw)
+            dpw_nmf.append(score_dpw_nmf)
+            dpwc.append(score_dpwc_kmeans)
+            dpwc_nmf.append(score_dpwc_nmf_kmeans)
             writer.writerow(fields)
-            count += 1
-    progress_bar(count, 30, status=f'({word_a:12}, {word_b:12})')
-    print()
+    
+
+    #lengths = np.array(lengths)
+    #print(f'average: {np.average(lengths)}')
+
+    logger.info(f'DPW      {stats.pearsonr(raw, dpw)[0]}/{stats.spearmanr(raw, dpw)[0]}')
+    logger.info(f'DPW NMF  {stats.pearsonr(raw, dpw_nmf)[0]}/{stats.spearmanr(raw, dpw_nmf)[0]}')
+    logger.info(f'DPWC     {stats.pearsonr(raw, dpwc)[0]}/{stats.spearmanr(raw, dpwc)[0]}')
+    logger.info(f'DPWC NMF {stats.pearsonr(raw, dpwc_nmf)[0]}/{stats.spearmanr(raw, dpwc_nmf)[0]}')
         
 
 if __name__ == '__main__':

@@ -12,13 +12,12 @@ import scipy
 import pprint
 import logging
 import numpy as np
+
 import semantic.nmf as nmf
 
-
-from sklearn.cluster import KMeans
 from scipy.cluster.hierarchy import linkage
 from typing import List, Dict, Tuple
-from sklearn.metrics import silhouette_score,  davies_bouldin_score
+from sklearn.metrics import silhouette_score, davies_bouldin_score
 
 
 import skfuzzy as fuzz
@@ -140,6 +139,9 @@ class DPW:
         else:
             return 0
     
+    def __len__(self):
+        return len(self.neighborhood)
+    
     def __str__(self):
         return f'Profile: {self.word}\nNeighborhood: {self.neighborhood}\nNames: {self.names}'
     
@@ -184,7 +186,7 @@ class DPWC:
             for n_b, a_b in dpwc.neighborhood:
                 similarity = dpw_similarity(n_a, n_b)
                 similarity_with_affinity = similarity*((a_a+a_b)/2.0)
-                #logger.info('%s\n%s\nS=%s/%s\n\n', n_a, n_b, similarity, similarity_with_affinity)
+                #logger.debug('%s\n%s\nS=%s/%s\n\n', n_a, n_b, similarity, similarity_with_affinity)
                 similarities.append(similarity_with_affinity)
 
         return max(similarities)
@@ -296,22 +298,31 @@ def latent_analysis(dpw: DPW, d: int, dpw_cache: DPW_Cache):
 
     # Learn the dimensions in latent space and reconstruct into token space
     k = len(names)//d
-    W, H = nmf.nmf_nnls(V, k, seed=11)
-    Vr = np.dot(W, H)
+    
+    seeds = [3,5,7,11,13]
+    best_Vr = V
+    best_cost = float('inf') 
+    for s in seeds:
+        #W, H, cost = nmf.nmf_mu(V, k, seed=s)
+        Vr, W, H, cost = nmf.rwnmf(V, k, seed=s)
+        #print(f'{cost}/{best_cost}')
+        if cost < best_cost:
+            best_Vr = Vr
+            best_cost = cost
 
     # Recreate the simmetric matrix
     for i in range(0, size_names-1):
         for j in range(i+1, size_names):
-            value = max(Vr[i,j], Vr[j,i])
-            Vr[i,j] = value
-            Vr[j,i] = value
+            value = max(best_Vr[i,j], best_Vr[j,i])
+            best_Vr[i,j] = value
+            best_Vr[j,i] = value
 
     # normalize the similarity matrix
-    sum_of_rows = Vr.sum(axis=1)
-    Vr = Vr / sum_of_rows[:, np.newaxis]
-    np.fill_diagonal(Vr, 1)
+    sum_of_rows = best_Vr.sum(axis=1)
+    best_Vr = best_Vr / sum_of_rows[:, np.newaxis]
+    np.fill_diagonal(best_Vr, 1)
 
-    return V, Vr
+    return V, best_Vr
 
 
 def learn_dpwc(dpw: DPW, V, Vr):
@@ -377,17 +388,17 @@ def learn_dpwc(dpw: DPW, V, Vr):
             labels_nmf = cluster_labels
 
         #Fuzzy
-        _, u, _, _, _, _, fpc = fuzz.cluster.cmeans(V, n, 2, error=0.005, maxiter=1000, init=None)
+        #_, u, _, _, _, _, fpc = fuzz.cluster.cmeans(V, n, 2, error=0.005, maxiter=1000, init=None)
 
-        if fpc > best_fpc:
-            best_fpc = fpc
-            best_u = u
+        #if fpc > best_fpc:
+        #    best_fpc = fpc
+        #    best_u = u
         
-        _, u, _, _, _, _, fpc = fuzz.cluster.cmeans(Vr, n, 2, error=0.005, maxiter=1000, init=None)
+        #_, u, _, _, _, _, fpc = fuzz.cluster.cmeans(Vr, n, 2, error=0.005, maxiter=1000, init=None)
 
-        if fpc > best_fpc_nmf:
-            best_fpc_nmf = fpc
-            best_u_nmf = u
+        #if fpc > best_fpc_nmf:
+        #    best_fpc_nmf = fpc
+        #    best_u_nmf = u
 
     #logger.debug('Labels: %s (%s; %s)', labels, best_score, best_n)
     #logger.debug('Names: %s', names)
@@ -398,15 +409,15 @@ def learn_dpwc(dpw: DPW, V, Vr):
     neighborhoods_kmeans_nmf = build_neighborhoods(names, values_nmf, best_n_nmf, labels_nmf)
 
     # Fuzzy 
-    weights = build_fuzzy_weights(best_u, idx_word)
-    weights_nmf = build_fuzzy_weights(best_u_nmf, idx_word)
-    neighborhoods_fuzzy = build_neighborhoods_fuzzy(names, values, weights)
-    neighborhoods_fuzzy_nmf = build_neighborhoods_fuzzy(names, values_nmf, weights_nmf)
+    #weights = build_fuzzy_weights(best_u, idx_word)
+    #weights_nmf = build_fuzzy_weights(best_u_nmf, idx_word)
+    #neighborhoods_fuzzy = build_neighborhoods_fuzzy(names, values, weights)
+    #neighborhoods_fuzzy_nmf = build_neighborhoods_fuzzy(names, values_nmf, weights_nmf)
 
     # Build DPWCs
     dpwc = (DPWC(dpw.word, dpw.names, neighborhoods_kmeans),
-    DPWC(dpw.word, dpw.names, neighborhoods_kmeans_nmf),
-    DPWC(dpw.word, dpw.names, neighborhoods_fuzzy),
-    DPWC(dpw.word, dpw.names, neighborhoods_fuzzy_nmf))
+    DPWC(dpw.word, dpw.names, neighborhoods_kmeans_nmf))
+    #DPWC(dpw.word, dpw.names, neighborhoods_fuzzy),
+    #DPWC(dpw.word, dpw.names, neighborhoods_fuzzy_nmf))
 
     return dpwc
