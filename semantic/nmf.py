@@ -131,6 +131,7 @@ def nmf_mu(X, k, n=1000, l=0.0001):
 
     # Create a Mask
     M = X > 0.0
+    print(M)
 
     for _ in range(n):
         W = np.multiply(W, np.divide((M*X)@H.T-l*np.linalg.norm(W, 'fro'), (M*(W@H))@H.T))

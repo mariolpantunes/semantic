@@ -6,14 +6,15 @@ __email__ = 'mariolpantunes@gmail.com'
 __status__ = 'Development'
 
 
-import nmf
 import copy
 import nltk
 import scipy
 import pprint
 import logging
 import numpy as np
-#import matplotlib.pyplot as plt
+import semantic.nmf as nmf
+
+
 from sklearn.cluster import KMeans
 from scipy.cluster.hierarchy import linkage
 from typing import List, Dict, Tuple
