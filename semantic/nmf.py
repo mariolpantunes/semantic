@@ -150,7 +150,7 @@ def nmf_mu(X, k, n=1000, l=1E-3, seed=None):
         H = np.maximum(H, eps)
 
         Xr = W @ H
-        cost = np.linalg.norm(X - Xr, 'fro')
+        cost = np.linalg.norm((M*X) - (M*Xr), 'fro')
         if cost <= l:
             break
     
