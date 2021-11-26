@@ -325,7 +325,7 @@ def latent_analysis(dpw: DPW, d: int, dpw_cache: DPW_Cache):
     return V, best_Vr
 
 
-def learn_dpwc(dpw: DPW, V, Vr):
+def learn_dpwc(dpw: DPW, V: np.ndarray, Vr: np.ndarray, m:str='average'):
     # load names and the right index
     names = dpw.get_names()
     idx_word = names.index(dpw.word)
@@ -348,28 +348,11 @@ def learn_dpwc(dpw: DPW, V, Vr):
     scores_nmf = []
 
     # Compute HC
-    ddgm = linkage(D, method='average')
-    ddgm_nmf = linkage(D_nmf, method='average')
+    ddgm = linkage(D, method=m)
+    ddgm_nmf = linkage(D_nmf, method=m)
 
-    # K-means and Fuzzy C-Means
+    # Hard and Soft Cluster
     for n in range(2, size_names-1):
-        '''km = KMeans(n_clusters=n, init='k-means++')
-        cluster_labels = km.fit_predict(V)
-        #score = silhouette_score(V, cluster_labels)
-        score = davies_bouldin_score(V, cluster_labels)
-        if score < best_score:
-            best_n = n
-            best_score = score
-            labels = cluster_labels
-
-        km_nmf = KMeans(n_clusters=n, init='k-means++')
-        cluster_labels_nmf = km_nmf.fit_predict(VR)
-        score_nmf = davies_bouldin_score(VR, cluster_labels_nmf)
-        if score_nmf < best_score_nmf:
-            best_n_nmf = n
-            best_score_nmf = score
-            labels_nmf = cluster_labels'''
-        
         cluster_labels = scipy.cluster.hierarchy.fcluster(ddgm, n, criterion="maxclust")
         cluster_labels_nmf = scipy.cluster.hierarchy.fcluster(ddgm_nmf, n, criterion="maxclust")
 
