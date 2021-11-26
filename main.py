@@ -92,13 +92,13 @@ def main(args):
 
             # DPWC and variations
             if dpw_a.word[1] not in dpwc_cache:
-                dpwc_a = learn_dpwc(dpw_a, Va, Vra)
+                dpwc_a = learn_dpwc(dpw_a, Va, Vra, args.m)
                 dpwc_cache[dpw_a.word[1]] = dpwc_a
             else:
                 dpwc_a = dpwc_cache[dpw_a.word[1]]
 
             if dpw_b.word[1] not in dpwc_cache:
-                dpwc_b = learn_dpwc(dpw_b, Vb, Vrb)
+                dpwc_b = learn_dpwc(dpw_b, Vb, Vrb, args.m)
                 dpwc_cache[dpw_b.word[1]] = dpwc_b
             else:
                 dpwc_b = dpwc_cache[dpw_b.word[1]]
@@ -139,5 +139,6 @@ if __name__ == '__main__':
     parser.add_argument('-d', type=str, required=True, help='dataset file (csv)')
     parser.add_argument('-n', type=int, help='neighborhood size', default=3)
     parser.add_argument('-k', type=int, help='NMF dinamic k', default=2)
+    parser.add_argument('-m', type=str, help='Cluster method', default='average')
     args = parser.parse_args()
     main(args)

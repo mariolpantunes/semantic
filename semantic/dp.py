@@ -15,18 +15,16 @@ import numpy as np
 
 import semantic.nmf as nmf
 
+import scipy.spatial.distance as ssd
 from scipy.cluster.hierarchy import linkage
-from typing import List, Dict, Tuple
 from sklearn.metrics import silhouette_score, davies_bouldin_score
-
-
 import skfuzzy as fuzz
 
 
 logger = logging.getLogger(__name__)
 
 
-def extract_neighborhood(target_word: str, ws, n: int) -> Dict:
+def extract_neighborhood(target_word: str, ws, n: int) -> {}:
     snippets = ws.search(target_word)
     ps = nltk.stem.PorterStemmer()
     stem_target_word = ps.stem(target_word)
@@ -68,7 +66,7 @@ def extract_neighborhood(target_word: str, ws, n: int) -> Dict:
     return neighborhood
 
 
-def dpw_similarity(n_a: Dict, n_b: Dict) -> float:
+def dpw_similarity(n_a: dict, n_b: dict) -> float:
         features_a = list(n_a.keys())
         features_b = list(n_b.keys())
         features = list(set(features_a + features_b))
@@ -99,7 +97,7 @@ def dpw_similarity(n_a: Dict, n_b: Dict) -> float:
 
 
 class DPW:
-    def __init__(self, word, neighborhood: List):
+    def __init__(self, word, neighborhood: list):
         ps = nltk.stem.PorterStemmer()
         self.word = (ps.stem(word), word)
         # reduce neighborhood using the stem transformation
@@ -175,7 +173,7 @@ class DPW_Cache():
 
 
 class DPWC:
-    def __init__(self, word: Tuple, names: Dict, neighborhood: List):
+    def __init__(self, word: tuple, names: dict, neighborhood: list):
         self.word = word
         self.names = names
         self.neighborhood = neighborhood
@@ -200,7 +198,7 @@ class DPWC:
         return self.__str__()
 
 
-def nmf_optimization(dpw: DPW, Vr):
+def nmf_optimization(dpw: DPW, Vr: np.ndarray) -> DPW:
     # load names
     names = dpw.get_names()
     
@@ -292,10 +290,16 @@ def latent_analysis(dpw: DPW, d: int, dpw_cache: DPW_Cache):
             V[j,i] = value
     
     # normalize the similarity matrix
-    sum_of_rows = V.sum(axis=1)
-    V = V / sum_of_rows[:, np.newaxis]
-    max_value = V.max()
+    #sum_of_matrix = V.sum()
+    #print(V)
+    #print(sum_of_matrix)
+    #V = V / sum_of_matrix
+    
+    #print(V)
+    
+
     np.fill_diagonal(V, 1.0)
+
 
     # Learn the dimensions in latent space and reconstruct into token space
     k = len(names)//d
@@ -318,9 +322,15 @@ def latent_analysis(dpw: DPW, d: int, dpw_cache: DPW_Cache):
             best_Vr[j,i] = value
 
     # normalize the similarity matrix
-    sum_of_rows = best_Vr.sum(axis=1)
-    best_Vr = best_Vr / sum_of_rows[:, np.newaxis]
+    #sum_of_matrix = best_Vr.sum()
+    #best_Vr = best_Vr / sum_of_matrix
+    best_Vr = np.clip(best_Vr, 0, 1)
     np.fill_diagonal(best_Vr, 1)
+
+    #print(f'Cost = {best_cost}')
+
+    #print(best_Vr)
+    #input('wait...')
 
     return V, best_Vr
 
@@ -348,8 +358,8 @@ def learn_dpwc(dpw: DPW, V: np.ndarray, Vr: np.ndarray, m:str='average'):
     scores_nmf = []
 
     # Compute HC
-    ddgm = linkage(D, method=m)
-    ddgm_nmf = linkage(D_nmf, method=m)
+    ddgm = linkage(ssd.squareform(D), method=m)
+    ddgm_nmf = linkage(ssd.squareform(D_nmf), method=m)
 
     # Hard and Soft Cluster
     for n in range(2, size_names-1):

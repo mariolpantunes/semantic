@@ -133,12 +133,17 @@ def nmf_mu(X, k, n=1000, l=1E-3, seed=None):
     eps = np.finfo(float).eps
 
     # Create W and H
+    avg = np.sqrt(X.mean() / k)
+    
     W = np.abs(np.random.uniform(size=(rows, k)))
-    H = np.abs(np.random.uniform(size=(k, columns)))
-    W = np.divide(W, k*W.max())
-    H = np.divide(H, k*H.max())
+    #W = avg * np.maximum(W, eps)
     W = np.maximum(W, eps)
+    W = np.divide(W, k*W.max())
+
+    H = np.abs(np.random.uniform(size=(k, columns)))
+    #H = avg * np.maximum(H, eps)
     H = np.maximum(H, eps)
+    H = np.divide(H, k*H.max())
 
     # Create a Mask
     M = X > 0.0
