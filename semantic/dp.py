@@ -294,18 +294,18 @@ def latent_analysis(dpw: DPW, d: int, dpw_cache: DPW_Cache):
     # normalize the similarity matrix
     sum_of_rows = V.sum(axis=1)
     V = V / sum_of_rows[:, np.newaxis]
+    max_value = V.max()
     np.fill_diagonal(V, 1.0)
 
     # Learn the dimensions in latent space and reconstruct into token space
     k = len(names)//d
     
-    seeds = [3,5,7,11,13]
+    seeds = [23,29,67,71,863,937,941,997]
     best_Vr = V
     best_cost = float('inf') 
     for s in seeds:
-        #W, H, cost = nmf.nmf_mu(V, k, seed=s)
-        Vr, W, H, cost = nmf.rwnmf(V, k, seed=s)
-        #print(f'{cost}/{best_cost}')
+        Vr, _, _, cost = nmf.nmf_mu(V, k, seed=s)
+        #Vr, _, _, cost = nmf.rwnmf(V, k, seed=s)
         if cost < best_cost:
             best_Vr = Vr
             best_cost = cost

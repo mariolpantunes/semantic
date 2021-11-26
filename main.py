@@ -17,7 +17,7 @@ from scipy import stats
 from semantic.search import CacheSearch, CWS
 from semantic.dp import DPW_Cache, nmf_optimization, learn_dpwc, latent_analysis
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.INFO, format='%(message)s')
 logger = logging.getLogger(__name__)
 
 
