@@ -15,7 +15,8 @@ import argparse
 from pathlib import Path
 from scipy import stats
 from semantic.search import CacheSearch, CWS
-from semantic.dp import DPW_Cache, nmf_optimization, learn_dpwc, latent_analysis
+from semantic.dp import Cutoff, DPW_Cache, nmf_optimization, learn_dpwc, latent_analysis
+
 
 logging.basicConfig(level=logging.INFO, format='%(message)s')
 logger = logging.getLogger(__name__)
@@ -25,15 +26,13 @@ def main(args):
     cws = CWS(config.key)
     cache_ws = CacheSearch(cws, config.cache)
 
-    dpw_cache     = DPW_Cache(args.n, cache_ws)
+    dpw_cache     = DPW_Cache(args.n, cache_ws, args.c)
     dpw_cache_nmf = {}
     dpwc_cache    = {}
     
     filename = Path(args.d).resolve().stem
     logger.debug(filename)
-    output_filename = f'{filename}_{args.n}_{args.k}.csv'
-
-    count = 0
+    output_filename = f'{filename}_{args.c}_{args.n}_{args.k}.csv'
 
     #header = ['raw', 'nmf', 'dpwc', 'dpwc_nmf', 'dpwc_fuzzy', 'dpwc_fuzzy_nmf']
     header = ['raw', 'nmf', 'dpwc', 'dpwc_nmf']
@@ -128,6 +127,7 @@ def main(args):
     #lengths = np.array(lengths)
     #print(f'average: {np.average(lengths)}')
 
+    logger.info(f'{output_filename}')
     logger.info(f'DPW      {stats.pearsonr(raw, dpw)[0]}/{stats.spearmanr(raw, dpw)[0]}')
     logger.info(f'DPW NMF  {stats.pearsonr(raw, dpw_nmf)[0]}/{stats.spearmanr(raw, dpw_nmf)[0]}')
     logger.info(f'DPWC     {stats.pearsonr(raw, dpwc)[0]}/{stats.spearmanr(raw, dpwc)[0]}')
@@ -140,5 +140,6 @@ if __name__ == '__main__':
     parser.add_argument('-n', type=int, help='neighborhood size', default=3)
     parser.add_argument('-k', type=int, help='NMF dinamic k', default=2)
     parser.add_argument('-m', type=str, help='Cluster method', default='average')
+    parser.add_argument('-c', type=Cutoff, help='Cutoff method', choices=list(Cutoff), default='pareto20')
     args = parser.parse_args()
     main(args)

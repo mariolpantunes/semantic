@@ -133,7 +133,7 @@ def nmf_mu(X, k, n=1000, l=1E-3, seed=None):
     eps = np.finfo(float).eps
 
     # Create W and H
-    avg = np.sqrt(X.mean() / k)
+    #avg = np.sqrt(X.mean() / k)
     
     W = np.abs(np.random.uniform(size=(rows, k)))
     #W = avg * np.maximum(W, eps)

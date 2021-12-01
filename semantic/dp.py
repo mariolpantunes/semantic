@@ -6,6 +6,7 @@ __email__ = 'mariolpantunes@gmail.com'
 __status__ = 'Development'
 
 
+import enum
 import copy
 import nltk
 import scipy
@@ -15,16 +16,26 @@ import numpy as np
 
 import semantic.nmf as nmf
 
+import knee.lmethod as lmethod
 import scipy.spatial.distance as ssd
 from scipy.cluster.hierarchy import linkage
-from sklearn.metrics import silhouette_score, davies_bouldin_score
-import skfuzzy as fuzz
+from sklearn.metrics import silhouette_score #, davies_bouldin_score
+#import skfuzzy as fuzz
 
 
 logger = logging.getLogger(__name__)
 
 
-def extract_neighborhood(target_word: str, ws, n: int) -> {}:
+class Cutoff(enum.Enum):
+    knee = 'knee'
+    pareto20 = 'pareto20'
+    pareto80 = 'pareto80'
+
+    def __str__(self):
+        return self.value
+
+
+def extract_neighborhood(target_word: str, ws, n: int, c:Cutoff=Cutoff.pareto80) -> dict:
     snippets = ws.search(target_word)
     ps = nltk.stem.PorterStemmer()
     stem_target_word = ps.stem(target_word)
@@ -53,9 +64,32 @@ def extract_neighborhood(target_word: str, ws, n: int) -> {}:
     neighborhood = [(k, v) for k, v in neighborhood.items() if v > 1] 
     neighborhood.sort(key=lambda tup: tup[1], reverse=True)
     logger.debug(neighborhood)
-    limit = int(len(neighborhood)*0.2)
     
-    logger.debug('%s/%s', len(neighborhood), limit)
+    # Reduce the size of the vector
+    limit = len(neighborhood)
+    if c is Cutoff.pareto80:
+        neighborhood_size = 0
+        for _,v in neighborhood:
+            neighborhood_size += v
+
+        goal=neighborhood_size*0.8
+
+        partial_goal = 0
+        for i in range(len(neighborhood)):
+            partial_goal += neighborhood[i][1]
+            if partial_goal >= goal:
+                limit = i
+                break
+    elif c is Cutoff.pareto20:
+        limit = int(len(neighborhood)*0.2)
+    else:
+        points = []
+        for i in range(len(neighborhood)):
+            points.append([i, neighborhood[i][1]])
+        points = np.array(points)
+        limit = lmethod.knee(points)
+    
+    logger.info('%s/%s', len(neighborhood), limit)
     neighborhood = neighborhood[:limit]
     
     #x_val = [x[0] for x in neighborhood[:limit]]
@@ -148,14 +182,15 @@ class DPW:
 
 
 class DPW_Cache():
-    def __init__(self, n: int, ws):
+    def __init__(self, n: int, ws, c:Cutoff=Cutoff.pareto20):
         self.n = n
         self.ws = ws
         self.cache = {}
+        self.cutoff = c
     
     def __getitem__(self, key):
         if key not in self.cache:
-            word_neighborhood = extract_neighborhood(key, self.ws, self.n)
+            word_neighborhood = extract_neighborhood(key, self.ws, self.n, self.cutoff)
             if len(word_neighborhood) == 0:
                 self.cache[key] = None
             else:
@@ -351,8 +386,8 @@ def learn_dpwc(dpw: DPW, V: np.ndarray, Vr: np.ndarray, m:str='average'):
     best_n = best_n_nmf = 0
     labels = labels_nmf = None
 
-    best_fpc = best_fpc_nmf = 0.0
-    best_u = best_u_nmf = 0
+    #best_fpc = best_fpc_nmf = 0.0
+    #best_u = best_u_nmf = 0
 
     scores = []
     scores_nmf = []
