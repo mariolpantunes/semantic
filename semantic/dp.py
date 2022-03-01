@@ -14,7 +14,7 @@ import pprint
 import logging
 import numpy as np
 
-import semantic.nmf as nmf
+import nmf.nmf as nmf
 
 import knee.lmethod as lmethod
 import scipy.spatial.distance as ssd
@@ -89,7 +89,7 @@ def extract_neighborhood(target_word: str, ws, n: int, c:Cutoff=Cutoff.pareto80)
         points = np.array(points)
         limit = lmethod.knee(points)
     
-    logger.info('%s/%s', len(neighborhood), limit)
+    logger.debug('%s/%s', len(neighborhood), limit)
     neighborhood = neighborhood[:limit]
     
     #x_val = [x[0] for x in neighborhood[:limit]]
@@ -343,7 +343,7 @@ def latent_analysis(dpw: DPW, d: int, dpw_cache: DPW_Cache):
     best_Vr = V
     best_cost = float('inf') 
     for s in seeds:
-        Vr, _, _, cost = nmf.nmf_mu(V, k, seed=s)
+        Vr, _, _, cost = nmf.nmf_mu_kl(V, k, seed=s)
         #Vr, _, _, cost = nmf.rwnmf(V, k, seed=s)
         if cost < best_cost:
             best_Vr = Vr
@@ -401,19 +401,26 @@ def learn_dpwc(dpw: DPW, V: np.ndarray, Vr: np.ndarray, m:str='average'):
         cluster_labels = scipy.cluster.hierarchy.fcluster(ddgm, n, criterion="maxclust")
         cluster_labels_nmf = scipy.cluster.hierarchy.fcluster(ddgm_nmf, n, criterion="maxclust")
 
-        score = silhouette_score(D, cluster_labels, metric='precomputed')
-        scores.append(score)
-        if score > best_score:
-            best_n = n
-            best_score = score
-            labels = cluster_labels
+        #TODO: Use this: https://stackoverflow.com/questions/47535256/how-to-make-fcluster-to-return-the-same-output-as-cut-tree
+        try:
+            score = silhouette_score(D, cluster_labels, metric='precomputed')
+            scores.append(score)
+            if score > best_score:
+                best_n = n
+                best_score = score
+                labels = cluster_labels
+        except:
+            pass
         
-        score_nmf = silhouette_score(D_nmf, cluster_labels_nmf, metric='precomputed')
-        scores_nmf.append(score_nmf)
-        if score_nmf > best_score_nmf:
-            best_n_nmf = n
-            best_score_nmf = score
-            labels_nmf = cluster_labels
+        try:
+            score_nmf = silhouette_score(D_nmf, cluster_labels_nmf, metric='precomputed')
+            scores_nmf.append(score_nmf)
+            if score_nmf > best_score_nmf:
+                best_n_nmf = n
+                best_score_nmf = score
+                labels_nmf = cluster_labels
+        except:
+            pass
 
         #Fuzzy
         #_, u, _, _, _, _, fpc = fuzz.cluster.cmeans(V, n, 2, error=0.005, maxiter=1000, init=None)
