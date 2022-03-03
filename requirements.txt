@@ -7,5 +7,5 @@ matplotlib>=3.5.0
 scikit-learn>=1.0.1
 scikit-fuzzy>=0.4.2
 fuzzy-c-means>=1.6.3
-git+git://github.com/mariolpantunes/knee@main#egg=knee
 git+git://github.com/mariolpantunes/nmf@main#egg=nmf
+git+git://github.com/mariolpantunes/knee@main#egg=knee
