@@ -21,7 +21,7 @@ import scipy.spatial.distance as ssd
 from scipy.cluster.hierarchy import linkage
 from sklearn.metrics import silhouette_score
 
-from semantic.corpus import Corpus  
+from semantic.corpus import WebCorpus  
 
 # , davies_bouldin_score
 #import skfuzzy as fuzz
@@ -39,36 +39,36 @@ class Cutoff(enum.Enum):
         return self.value
 
 
-def extract_neighborhood(target_word: str, ws, n: int, c: Cutoff = Cutoff.pareto80) -> dict:
-    snippets = ws.search(target_word)
-    ps = nltk.stem.PorterStemmer()
-    stem_target_word = ps.stem(target_word)
+def extract_neighborhood(target_word: str, corpus:list[str], n: int, stemmer, stop_words, c: Cutoff = Cutoff.pareto80) -> dict:
+    #snippets = ws.search(target_word)
+    stem_target_word = stemmer.stem(target_word)
     tokens = []
     # Text Mining Pipeline
-    stop_words = set(nltk.corpus.stopwords.words('english'))
-    for s in snippets:
+    for s in corpus:
         temp_tokens = nltk.word_tokenize(s)
-        filtered_tokens = [w.lower(
-        ) for w in temp_tokens if not w in stop_words and w.isalpha() and len(w) > 2]
+        filtered_tokens = [w.lower() for w in temp_tokens if not w in stop_words and w.isalpha() and len(w) > 2]
         tokens.extend(filtered_tokens)
-    logger.debug(tokens)
-    logger.debug('Total number of tokens: %s', len(tokens))
+    #logger.debug(tokens)
+    #logger.debug('Total number of tokens: %s', len(tokens))
     # Search for target word
+    print(f'stem_target_word = {stem_target_word}')
+    print(f'tokens = {tokens}')
     neighborhood = {}
-    for i in range(0, len(tokens)):
-        st = ps.stem(tokens[i])
+    for i in range(len(tokens)):
+        st = stemmer.stem(tokens[i])
         if st == stem_target_word:
+            print('Match...')
             neighbors = tokens[i-n: i+n+1]
-            logger.debug(neighbors)
+            print(f'neighbors = {neighbors}')
             for t in neighbors:
                 if t not in neighborhood:
                     neighborhood[t] = 0
                 neighborhood[t] += 1
-    logger.debug(neighborhood)
+    #logger.debug(neighborhood)
     # Convert neighborhood into a list of tuples
     neighborhood = [(k, v) for k, v in neighborhood.items() if v > 1]
     neighborhood.sort(key=lambda tup: tup[1], reverse=True)
-    logger.debug(neighborhood)
+    #logger.debug(neighborhood)
 
     # Reduce the size of the vector
     limit = len(neighborhood)
@@ -136,7 +136,7 @@ def dpw_similarity(n_a: dict, n_b: dict) -> float:
 
 
 class DPW:
-    def __init__(self, word, neighborhood: list):
+    def __init__(self, word: str, neighborhood: list):
         ps = nltk.stem.PorterStemmer()
         self.word = (ps.stem(word), word)
         # reduce neighborhood using the stem transformation
@@ -161,8 +161,9 @@ class DPW:
         self.names[self.word[0]] = word
 
         # normalize the profile
-        for k in self.neighborhood:
-            self.neighborhood[k] /= t
+        if t > 0:
+            for k in self.neighborhood:
+                self.neighborhood[k] /= t
 
     def get_names(self):
         return [(k, v) for k, v in self.names.items()]
@@ -468,21 +469,43 @@ def learn_dpwc(dpw: DPW, V: np.ndarray, Vr: np.ndarray, m: str = 'average'):
 
 
 class DPWModel:
-
-    def __init__(self, corpus: Corpus):
+    def __init__(self, corpus: WebCorpus, n:int=3):
         self.corpus = corpus
-        pass
+        self.n = n
+        self.profiles = {}
+        self.stop_words = set(nltk.corpus.stopwords.words('english'))
+        self.stemmer = nltk.stem.PorterStemmer()
 
-    def fit(terms:list):
-        pass
+    def fit(self, terms:list[str]):
+        for t in terms:
+            # check if the term already exists in the cache
+            if t not in self.profiles:
+                # get the corpus
+                c = self.corpus.get(t)
+                n = extract_neighborhood(t, c, self.n, self.stemmer, self.stop_words)
+                self.profiles[t] = DPW(t, n)
 
+    def similarity(self, w0:str, w1:str):
+        return dpw_similarity(self.profiles[w0], self.profiles[w1])
     
+    def __str__(self):
+        txt = ''
+        for p in self.profiles:
+            txt += f'{p.__str__()}\n'
+        return txt
+
+    def __repr__(self):
+        return self.__str__()
+
 
 class DPWCModel:
 
-    def __init__(self, corpus: Corpus):
+    def __init__(self, corpus: WebCorpus):
         self.corpus = corpus
-        pass
+        self.profiles = {}
 
-    def fit():
-        pass
+    def fit(self, terms:list[str]):
+        for t in terms:
+            # check if the term already exists in the cache
+            if t not in self.profiles:
+                pass
