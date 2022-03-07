@@ -21,7 +21,7 @@ class TestDP(unittest.TestCase):
     
     def test_dp_00(self):
         terms = ['banana', 'apple', 'peach']
-        model = dp.DPWModel(self.corpus)
+        model = dp.DPWModel(self.corpus, l=0)
         model.fit(terms)
         print(model)
         

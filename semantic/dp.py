@@ -21,10 +21,11 @@ import scipy.spatial.distance as ssd
 from scipy.cluster.hierarchy import linkage
 from sklearn.metrics import silhouette_score
 
-from semantic.corpus import WebCorpus  
-
+from semantic.corpus import Corpus  
 # , davies_bouldin_score
 #import skfuzzy as fuzz
+
+from typing import List
 
 
 logger = logging.getLogger(__name__)
@@ -39,7 +40,7 @@ class Cutoff(enum.Enum):
         return self.value
 
 
-def extract_neighborhood(target_word: str, corpus:list[str], n: int, stemmer, stop_words, c: Cutoff = Cutoff.pareto80) -> dict:
+def extract_neighborhood(target_word: str, corpus:List[str], n: int, stemmer, stop_words, l:int=1, c: Cutoff = Cutoff.pareto80) -> dict:
     #snippets = ws.search(target_word)
     stem_target_word = stemmer.stem(target_word)
     tokens = []
@@ -61,16 +62,17 @@ def extract_neighborhood(target_word: str, corpus:list[str], n: int, stemmer, st
             stop = min(len(tokens), i+n+1)
             # neighbors = tokens[i-n:i+n+1]
             neighbors = tokens[start:stop]
-            print(f'neighbors = {neighbors}')
             for t in neighbors:
                 if t not in neighborhood:
                     neighborhood[t] = 0
                 neighborhood[t] += 1
     #logger.debug(neighborhood)
     # Convert neighborhood into a list of tuples
-    neighborhood = [(k, v) for k, v in neighborhood.items() if v > 1]
+    neighborhood = [(k, v) for k, v in neighborhood.items() if v > l]
     neighborhood.sort(key=lambda tup: tup[1], reverse=True)
     #logger.debug(neighborhood)
+
+    print(f'neighborhood = {neighborhood}')
 
     # Reduce the size of the vector
     limit = len(neighborhood)
@@ -96,7 +98,7 @@ def extract_neighborhood(target_word: str, corpus:list[str], n: int, stemmer, st
         points = np.array(points)
         limit = lmethod.knee(points)
 
-    logger.debug('%s/%s', len(neighborhood), limit)
+    #logger.debug('%s/%s', len(neighborhood), limit)
     neighborhood = neighborhood[:limit]
 
     #x_val = [x[0] for x in neighborhood[:limit]]
@@ -166,6 +168,8 @@ class DPW:
         if t > 0:
             for k in self.neighborhood:
                 self.neighborhood[k] /= t
+        
+        print(f'neighborhood = {self.neighborhood} names = {self.names} t = {t}')
 
     def get_names(self):
         return [(k, v) for k, v in self.names.items()]
@@ -471,20 +475,21 @@ def learn_dpwc(dpw: DPW, V: np.ndarray, Vr: np.ndarray, m: str = 'average'):
 
 
 class DPWModel:
-    def __init__(self, corpus: WebCorpus, n:int=3):
+    def __init__(self, corpus: Corpus, n:int=3, l:int=1):
         self.corpus = corpus
         self.n = n
+        self.l = l
         self.profiles = {}
         self.stop_words = set(nltk.corpus.stopwords.words('english'))
         self.stemmer = nltk.stem.PorterStemmer()
 
-    def fit(self, terms:list[str]):
+    def fit(self, terms:List[str]):
         for t in terms:
             # check if the term already exists in the cache
             if t not in self.profiles:
                 # get the corpus
                 c = self.corpus.get(t)
-                n = extract_neighborhood(t, c, self.n, self.stemmer, self.stop_words)
+                n = extract_neighborhood(t, c, self.n, self.stemmer, self.stop_words, l=self.l)
                 self.profiles[t] = DPW(t, n)
 
     def similarity(self, w0:str, w1:str):
@@ -492,7 +497,7 @@ class DPWModel:
     
     def __str__(self):
         txt = ''
-        for p in self.profiles:
+        for _, p in self.profiles.items():
             txt += f'{p.__str__()}\n'
         return txt
 
@@ -502,11 +507,11 @@ class DPWModel:
 
 class DPWCModel:
 
-    def __init__(self, corpus: WebCorpus):
+    def __init__(self, corpus: Corpus):
         self.corpus = corpus
         self.profiles = {}
 
-    def fit(self, terms:list[str]):
+    def fit(self, terms:List[str]):
         for t in terms:
             # check if the term already exists in the cache
             if t not in self.profiles:
