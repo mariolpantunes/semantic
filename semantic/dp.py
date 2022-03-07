@@ -49,11 +49,7 @@ def extract_neighborhood(target_word: str, corpus:List[str], n: int, stemmer, st
         temp_tokens = nltk.word_tokenize(s)
         filtered_tokens = [w.lower() for w in temp_tokens if not w in stop_words and w.isalpha() and len(w) > 2]
         tokens.extend(filtered_tokens)
-    #logger.debug(tokens)
-    #logger.debug('Total number of tokens: %s', len(tokens))
     # Search for target word
-    #print(f'stem_target_word = {stem_target_word}')
-    #print(f'tokens = {tokens}')
     neighborhood = {}
     for i in range(len(tokens)):
         st = stemmer.stem(tokens[i])
@@ -66,13 +62,10 @@ def extract_neighborhood(target_word: str, corpus:List[str], n: int, stemmer, st
                 if t not in neighborhood:
                     neighborhood[t] = 0
                 neighborhood[t] += 1
-    #logger.debug(neighborhood)
+    
     # Convert neighborhood into a list of tuples
     neighborhood = [(k, v) for k, v in neighborhood.items() if v > l]
     neighborhood.sort(key=lambda tup: tup[1], reverse=True)
-    #logger.debug(neighborhood)
-
-    print(f'neighborhood = {neighborhood}')
 
     # Reduce the size of the vector
     limit = len(neighborhood)
@@ -98,14 +91,8 @@ def extract_neighborhood(target_word: str, corpus:List[str], n: int, stemmer, st
         points = np.array(points)
         limit = lmethod.knee(points)
 
-    #logger.debug('%s/%s', len(neighborhood), limit)
     neighborhood = neighborhood[:limit]
 
-    #x_val = [x[0] for x in neighborhood[:limit]]
-    #y_val = [x[1] for x in neighborhood[:limit]]
-    # logger.debug(len(x_val))
-    # plt.plot(x_val,y_val)
-    # plt.show()
     return neighborhood
 
 
@@ -493,8 +480,11 @@ class DPWModel:
                 self.profiles[t] = DPW(t, n)
 
     def similarity(self, w0:str, w1:str):
-        return dpw_similarity(self.profiles[w0], self.profiles[w1])
+        return self.profiles[w0].similarity(self.profiles[w1])
     
+    def predict(self, w0:str, w1:str):
+        return self.similarity(w0, w1)
+
     def __str__(self):
         txt = ''
         for _, p in self.profiles.items():
