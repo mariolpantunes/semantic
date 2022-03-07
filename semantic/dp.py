@@ -51,14 +51,16 @@ def extract_neighborhood(target_word: str, corpus:list[str], n: int, stemmer, st
     #logger.debug(tokens)
     #logger.debug('Total number of tokens: %s', len(tokens))
     # Search for target word
-    print(f'stem_target_word = {stem_target_word}')
-    print(f'tokens = {tokens}')
+    #print(f'stem_target_word = {stem_target_word}')
+    #print(f'tokens = {tokens}')
     neighborhood = {}
     for i in range(len(tokens)):
         st = stemmer.stem(tokens[i])
         if st == stem_target_word:
-            print('Match...')
-            neighbors = tokens[i-n: i+n+1]
+            start = max(0, i-n)
+            stop = min(len(tokens), i+n+1)
+            # neighbors = tokens[i-n:i+n+1]
+            neighbors = tokens[start:stop]
             print(f'neighbors = {neighbors}')
             for t in neighbors:
                 if t not in neighborhood:
