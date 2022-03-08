@@ -21,7 +21,7 @@ import scipy.spatial.distance as ssd
 from scipy.cluster.hierarchy import linkage
 from sklearn.metrics import silhouette_score
 
-from semantic.corpus import Corpus  
+from semantic.corpus import Corpus
 # , davies_bouldin_score
 #import skfuzzy as fuzz
 
@@ -40,14 +40,15 @@ class Cutoff(enum.Enum):
         return self.value
 
 
-def extract_neighborhood(target_word: str, corpus:List[str], n: int, stemmer, stop_words, l:int=1, c: Cutoff = Cutoff.pareto80) -> dict:
+def extract_neighborhood(target_word: str, corpus: List[str], n: int, stemmer, stop_words, l: int = 1, c: Cutoff = Cutoff.pareto80) -> dict:
     #snippets = ws.search(target_word)
     stem_target_word = stemmer.stem(target_word)
     tokens = []
     # Text Mining Pipeline
     for s in corpus:
         temp_tokens = nltk.word_tokenize(s)
-        filtered_tokens = [w.lower() for w in temp_tokens if not w in stop_words and w.isalpha() and len(w) > 2]
+        filtered_tokens = [w.lower(
+        ) for w in temp_tokens if not w in stop_words and w.isalpha() and len(w) > 2]
         tokens.extend(filtered_tokens)
     # Search for target word
     neighborhood = {}
@@ -62,7 +63,7 @@ def extract_neighborhood(target_word: str, corpus:List[str], n: int, stemmer, st
                 if t not in neighborhood:
                     neighborhood[t] = 0
                 neighborhood[t] += 1
-    
+
     # Convert neighborhood into a list of tuples
     neighborhood = [(k, v) for k, v in neighborhood.items() if v > l]
     neighborhood.sort(key=lambda tup: tup[1], reverse=True)
@@ -155,8 +156,6 @@ class DPW:
         if t > 0:
             for k in self.neighborhood:
                 self.neighborhood[k] /= t
-        
-        print(f'neighborhood = {self.neighborhood} names = {self.names} t = {t}')
 
     def get_names(self):
         return [(k, v) for k, v in self.names.items()]
@@ -462,27 +461,32 @@ def learn_dpwc(dpw: DPW, V: np.ndarray, Vr: np.ndarray, m: str = 'average'):
 
 
 class DPWModel:
-    def __init__(self, corpus: Corpus, n:int=3, l:int=1):
+    def __init__(self, corpus: Corpus, n: int = 3, l: int = 1, latent=False):
         self.corpus = corpus
         self.n = n
         self.l = l
+        self.latent = latent
         self.profiles = {}
         self.stop_words = set(nltk.corpus.stopwords.words('english'))
         self.stemmer = nltk.stem.PorterStemmer()
+        # Add latent capabilities to the model
+        # if latent:
+        #    self.cache = DPW_Cache()
 
-    def fit(self, terms:List[str]):
+    def fit(self, terms: List[str]):
         for t in terms:
             # check if the term already exists in the cache
             if t not in self.profiles:
                 # get the corpus
                 c = self.corpus.get(t)
-                n = extract_neighborhood(t, c, self.n, self.stemmer, self.stop_words, l=self.l)
+                n = extract_neighborhood(
+                    t, c, self.n, self.stemmer, self.stop_words, l=self.l)
                 self.profiles[t] = DPW(t, n)
 
-    def similarity(self, w0:str, w1:str):
+    def similarity(self, w0: str, w1: str):
         return self.profiles[w0].similarity(self.profiles[w1])
-    
-    def predict(self, w0:str, w1:str):
+
+    def predict(self, w0: str, w1: str):
         return self.similarity(w0, w1)
 
     def __str__(self):
@@ -497,12 +501,13 @@ class DPWModel:
 
 class DPWCModel:
 
-    def __init__(self, corpus: Corpus):
-        self.corpus = corpus
+    def __init__(self, corpus: Corpus, n: int = 3, l: int = 1, latent=False):
+        self.latent = latent
         self.profiles = {}
+        self.DPWModel = DPWModel(corpus, n, l, False)
 
-    def fit(self, terms:List[str]):
+    def fit(self, terms: List[str]):
         for t in terms:
             # check if the term already exists in the cache
             if t not in self.profiles:
-                pass
+                dpw = self.DPWModel.get(t)

@@ -23,6 +23,14 @@ class TestDP(unittest.TestCase):
         terms = ['banana', 'apple', 'peach']
         model = dp.DPWModel(self.corpus, l=0)
         model.fit(terms)
+        result = model.similarity('banana', 'banana')
+        desired = 1.0
+        self.assertAlmostEqual(result, desired, 2)
+
+    def test_dp_01(self):
+        terms = ['banana', 'apple', 'peach']
+        model = dp.DPWModel(self.corpus, l=0)
+        model.fit(terms)
         result = model.similarity('banana', 'apple')
         desired = 0.17025130615174972
         self.assertAlmostEqual(result, desired, 2)
