@@ -179,33 +179,6 @@ class DPW:
         return self.__str__()
 
 
-class DPW_Cache():
-    def __init__(self, n: int, ws, c: Cutoff = Cutoff.pareto20):
-        self.n = n
-        self.ws = ws
-        self.cache = {}
-        self.cutoff = c
-
-    def __getitem__(self, key):
-        if key not in self.cache:
-            word_neighborhood = extract_neighborhood(
-                key, self.ws, self.n, self.cutoff)
-            if len(word_neighborhood) == 0:
-                self.cache[key] = None
-            else:
-                self.cache[key] = DPW(key, word_neighborhood)
-        return self.cache[key]
-
-    def __len__(self):
-        return len(self.cache)
-
-    def __str__(self):
-        return f'Cache: {list(self.cache.keys())}'
-
-    def __repr__(self):
-        return self.__str__()
-
-
 class DPWC:
     def __init__(self, word: tuple, names: dict, neighborhood: list):
         self.word = word
@@ -299,7 +272,7 @@ def rank(array, reverse=False):
     return [sorted(array, reverse=reverse).index(x) for x in array]
 
 
-def latent_analysis(dpw: DPW, d: int, dpw_cache: DPW_Cache):
+def latent_analysis(dpw: DPW, d: int, dpw_cache):
     # pre-load all neighboors and remove neighborhood with weak profiles
     names = dpw.get_names()
     for s, w in names:
@@ -460,11 +433,30 @@ def learn_dpwc(dpw: DPW, V: np.ndarray, Vr: np.ndarray, m: str = 'average'):
     return dpwc
 
 
+class DPW_Cache():
+    def __init__(self, n: int, ws, c: Cutoff = Cutoff.pareto20):
+        self.n = n
+        self.ws = ws
+        self.cache = {}
+        self.cutoff = c
+
+    
+
+    
+
+    def __str__(self):
+        return f'Cache: {list(self.cache.keys())}'
+
+    def __repr__(self):
+        return self.__str__()
+
+
 class DPWModel:
-    def __init__(self, corpus: Corpus, n: int = 3, l: int = 1, latent=False):
+    def __init__(self, corpus: Corpus, n: int = 3, l: int = 1, c: Cutoff = Cutoff.pareto80, latent=False):
         self.corpus = corpus
         self.n = n
         self.l = l
+        self.c = c
         self.latent = latent
         self.profiles = {}
         self.stop_words = set(nltk.corpus.stopwords.words('english'))
@@ -479,8 +471,7 @@ class DPWModel:
             if t not in self.profiles:
                 # get the corpus
                 c = self.corpus.get(t)
-                n = extract_neighborhood(
-                    t, c, self.n, self.stemmer, self.stop_words, l=self.l)
+                n = extract_neighborhood(t, c, self.n, self.stemmer, self.stop_words, c=self.c, l=self.l)
                 self.profiles[t] = DPW(t, n)
 
     def similarity(self, w0: str, w1: str):
@@ -488,6 +479,19 @@ class DPWModel:
 
     def predict(self, w0: str, w1: str):
         return self.similarity(w0, w1)
+    
+    def __getitem__(self, key):
+        if key not in self.profiles:
+            c = self.corpus.get(key)
+            n = extract_neighborhood(key, c, self.n, self.stemmer, self.stop_words, l=self.l)
+            if len(n) == 0:
+                self.profiles[key] = None
+            else:
+                self.profiles[key] = DPW(key, n)
+        return self.profiles[key]
+
+    def __len__(self):
+        return len(self.profiles)
 
     def __str__(self):
         txt = ''
@@ -501,13 +505,22 @@ class DPWModel:
 
 class DPWCModel:
 
-    def __init__(self, corpus: Corpus, n: int = 3, l: int = 1, latent=False):
+    def __init__(self, corpus: Corpus, n: int = 3, l: int = 1, c: Cutoff = Cutoff.pareto80, latent=False):
         self.latent = latent
         self.profiles = {}
-        self.DPWModel = DPWModel(corpus, n, l, False)
+        self.dpws = DPWModel(corpus, n, l, c, False)
 
     def fit(self, terms: List[str]):
         for t in terms:
             # check if the term already exists in the cache
             if t not in self.profiles:
-                dpw = self.DPWModel.get(t)
+                dpw = self.dpws[t]
+    
+    def __str__(self):
+        txt = ''
+        for _, p in self.profiles.items():
+            txt += f'{p.__str__()}\n'
+        return txt
+
+    def __repr__(self):
+        return self.__str__()
