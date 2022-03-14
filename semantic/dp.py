@@ -83,7 +83,7 @@ def extract_neighborhood(target_word: str, corpus:List[str], n: int, stemmer, st
     # Text Mining Pipeline
     for s in corpus:
         temp_tokens = nltk.word_tokenize(s)
-        filtered_tokens = [w.lower() for w in temp_tokens if not w in stop_words and w.isalpha() and len(w) > 2]
+        filtered_tokens = [w.lower() for w in temp_tokens if w.lower() not in stop_words and w.isalpha() and len(w) > 2]
         tokens.extend(filtered_tokens)
     # Search for target word
     neighborhood = {}
@@ -301,8 +301,8 @@ def latent_analysis(dpw: DPW, d: int, dpwm: 'DPWModel', seeds:List[int]=[23, 29,
     # Fill the matrix
     for i in range(0, size_names-1):
         for j in range(i+1, size_names):
-            dpw_i = dpw_cache[names[i][1]]
-            dpw_j = dpw_cache[names[j][1]]
+            dpw_i = dpwm[names[i][1]]
+            dpw_j = dpwm[names[j][1]]
             value = max(dpw_i[names[j][0]], dpw_j[names[i][0]])
             V[i, j] = value
             V[j, i] = value
@@ -399,11 +399,12 @@ def learn_dpwc(dpw: DPW, V: np.ndarray, Vr: np.ndarray, m: str = 'average'):
 
 
 class DPWModel:
-    def __init__(self, corpus: Corpus, n:int=3, l:int=1, c: Cutoff = Cutoff.pareto80, latent:bool=False):
+    def __init__(self, corpus: Corpus, n:int=3, l:int=1, c: Cutoff = Cutoff.pareto80, latent:bool=False, k:int=1):
         self.corpus = corpus
         self.n = n
         self.l = l
         self.c = c
+        self.k = k
         self.latent = latent
         self.profiles = {}
         if latent:
@@ -415,10 +416,10 @@ class DPWModel:
         for t in terms:
             # check if the term already exists in the cache
             if t not in self.profiles:
-                # get the corpus
-                corpus = self.corpus.get(t)
-                n = extract_neighborhood(t, corpus, self.n, self.stemmer, self.stop_words, c=self.c, l=self.l)
-                self.profiles[t] = DPW(t, n)
+                profile = self[t]
+                if self.latent:
+                    Va, Vra = latent_analysis(profile, self.k, self)
+                    self.profiles[t] = nmf_optimization(profile, Vra)
 
     def similarity(self, w0:str, w1:str):
         return self.profiles[w0].similarity(self.profiles[w1])
@@ -433,11 +434,14 @@ class DPWModel:
             d = self.profiles
 
         if key not in d:
-            word_neighborhood = extract_neighborhood(key, self.ws, self.n, self.cutoff)
-            if len(word_neighborhood) == 0:
+            # get the corpus
+            corpus = self.corpus.get(key)
+            n = extract_neighborhood(key, corpus, self.n, self.stemmer, self.stop_words, c=self.c, l=self.l)
+            #word_neighborhood = extract_neighborhood(key, self.ws, self.n, self.cutoff)
+            if len(n) == 0:
                 d[key] = None
             else:
-                d[key] = DPW(key, word_neighborhood)
+                d[key] = DPW(key, n)
         return d[key]
 
     def __len__(self):
