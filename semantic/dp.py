@@ -282,7 +282,7 @@ def rank(array, reverse=False):
     return [sorted(array, reverse=reverse).index(x) for x in array]
 
 
-def latent_analysis(dpw: DPW, d: int, dpwm: 'DPWModel', seeds:List[int]=[23, 29, 67, 71, 863, 937, 941, 997]):
+def latent_analysis(dpw: DPW, dpwm: 'DPWModel', d: int=1, seeds:List[int]=[23, 29, 67, 71, 863, 937, 941, 997]):
     # pre-load all neighboors and remove neighborhood with weak profiles
     names = dpw.get_names()
     for s, w in names:
@@ -307,7 +307,7 @@ def latent_analysis(dpw: DPW, d: int, dpwm: 'DPWModel', seeds:List[int]=[23, 29,
             V[i, j] = value
             V[j, i] = value
 
-    np.fill_diagonal(V, 1.0)
+    #np.fill_diagonal(V, 1.0)
 
     # Learn the dimensions in latent space and reconstruct into token space
     k = len(names)//d
@@ -329,7 +329,7 @@ def latent_analysis(dpw: DPW, d: int, dpwm: 'DPWModel', seeds:List[int]=[23, 29,
 
     # normalize the similarity matrix
     best_Vr = np.clip(best_Vr, 0, 1)
-    np.fill_diagonal(best_Vr, 1)
+    #np.fill_diagonal(best_Vr, 1)
 
     return V, best_Vr
 
@@ -418,7 +418,7 @@ class DPWModel:
             if t not in self.profiles:
                 profile = self[t]
                 if self.latent:
-                    Va, Vra = latent_analysis(profile, self.k, self)
+                    Va, Vra = latent_analysis(profile, self, d = self.k)
                     self.profiles[t] = nmf_optimization(profile, Vra)
 
     def similarity(self, w0:str, w1:str):
