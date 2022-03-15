@@ -22,8 +22,6 @@ from scipy.cluster.hierarchy import linkage
 from sklearn.metrics import silhouette_score
 
 from semantic.corpus import Corpus
-# , davies_bouldin_score
-#import skfuzzy as fuzz
 
 from typing import Dict, List
 
@@ -71,7 +69,7 @@ def cutoff_knee(neighborhood:Dict) -> int:
     return limit
 
 
-def extract_neighborhood(target_word: str, corpus:List[str], n: int, stemmer, stop_words, l:int=1, c: Cutoff = Cutoff.pareto80) -> dict:
+def extract_neighborhood(target_word: str, corpus:List[str], n: int, stemmer, stop_words, l:int=1, c: Cutoff = Cutoff.pareto80) -> Dict:
     switcher = {
         Cutoff.knee: cutoff_knee,
         Cutoff.pareto20: cutoff_pareto20,
@@ -288,11 +286,11 @@ def rank(array, reverse=False):
     return [sorted(array, reverse=reverse).index(x) for x in array]
 
 
-def latent_analysis(dpw: DPW, d: int, dpw_cache):
+def latent_analysis(dpw: DPW, dpwm: 'DPWModel', d: int=1, seeds:List[int]=[23, 29, 67, 71, 863, 937, 941, 997]):
     # pre-load all neighboors and remove neighborhood with weak profiles
     names = dpw.get_names()
     for s, w in names:
-        temp_dpw = dpw_cache[w]
+        temp_dpw = dpwm[w]
         if temp_dpw is None:
             dpw.neighborhood.pop(s, None)
             dpw.names.pop(s, None)
@@ -307,31 +305,21 @@ def latent_analysis(dpw: DPW, d: int, dpw_cache):
     # Fill the matrix
     for i in range(0, size_names-1):
         for j in range(i+1, size_names):
-            dpw_i = dpw_cache[names[i][1]]
-            dpw_j = dpw_cache[names[j][1]]
+            dpw_i = dpwm[names[i][1]]
+            dpw_j = dpwm[names[j][1]]
             value = max(dpw_i[names[j][0]], dpw_j[names[i][0]])
             V[i, j] = value
             V[j, i] = value
 
-    # normalize the similarity matrix
-    #sum_of_matrix = V.sum()
-    # print(V)
-    # print(sum_of_matrix)
-    #V = V / sum_of_matrix
-
-    # print(V)
-
-    np.fill_diagonal(V, 1.0)
+    #np.fill_diagonal(V, 1.0)
 
     # Learn the dimensions in latent space and reconstruct into token space
     k = len(names)//d
 
-    seeds = [23, 29, 67, 71, 863, 937, 941, 997]
     best_Vr = V
     best_cost = float('inf')
     for s in seeds:
         Vr, _, _, cost = nmf.nmf_mu_kl(V, k, seed=s)
-        #Vr, _, _, cost = nmf.rwnmf(V, k, seed=s)
         if cost < best_cost:
             best_Vr = Vr
             best_cost = cost
@@ -344,15 +332,8 @@ def latent_analysis(dpw: DPW, d: int, dpw_cache):
             best_Vr[j, i] = value
 
     # normalize the similarity matrix
-    #sum_of_matrix = best_Vr.sum()
-    #best_Vr = best_Vr / sum_of_matrix
     best_Vr = np.clip(best_Vr, 0, 1)
-    np.fill_diagonal(best_Vr, 1)
-
-    #print(f'Cost = {best_cost}')
-
-    # print(best_Vr)
-    # input('wait...')
+    #np.fill_diagonal(best_Vr, 1)
 
     return V, best_Vr
 
@@ -372,9 +353,6 @@ def learn_dpwc(dpw: DPW, V: np.ndarray, Vr: np.ndarray, m: str = 'average'):
     best_score = best_score_nmf = -1.0
     best_n = best_n_nmf = 0
     labels = labels_nmf = None
-
-    #best_fpc = best_fpc_nmf = 0.0
-    #best_u = best_u_nmf = 0
 
     scores = []
     scores_nmf = []
@@ -412,102 +390,70 @@ def learn_dpwc(dpw: DPW, V: np.ndarray, Vr: np.ndarray, m: str = 'average'):
         except:
             pass
 
-        # Fuzzy
-        #_, u, _, _, _, _, fpc = fuzz.cluster.cmeans(V, n, 2, error=0.005, maxiter=1000, init=None)
-
-        # if fpc > best_fpc:
-        #    best_fpc = fpc
-        #    best_u = u
-
-        #_, u, _, _, _, _, fpc = fuzz.cluster.cmeans(Vr, n, 2, error=0.005, maxiter=1000, init=None)
-
-        # if fpc > best_fpc_nmf:
-        #    best_fpc_nmf = fpc
-        #    best_u_nmf = u
-
-    #logger.debug('Labels: %s (%s; %s)', labels, best_score, best_n)
-    #logger.debug('Names: %s', names)
-
     labels = [x-1 for x in labels]
     labels_nmf = [x-1 for x in labels_nmf]
     neighborhoods_kmeans = build_neighborhoods(names, values, best_n, labels)
-    neighborhoods_kmeans_nmf = build_neighborhoods(
-        names, values_nmf, best_n_nmf, labels_nmf)
-
-    # Fuzzy
-    #weights = build_fuzzy_weights(best_u, idx_word)
-    #weights_nmf = build_fuzzy_weights(best_u_nmf, idx_word)
-    #neighborhoods_fuzzy = build_neighborhoods_fuzzy(names, values, weights)
-    #neighborhoods_fuzzy_nmf = build_neighborhoods_fuzzy(names, values_nmf, weights_nmf)
+    neighborhoods_kmeans_nmf = build_neighborhoods(names, values_nmf, best_n_nmf, labels_nmf)
 
     # Build DPWCs
     dpwc = (DPWC(dpw.word, dpw.names, neighborhoods_kmeans),
             DPWC(dpw.word, dpw.names, neighborhoods_kmeans_nmf))
-    #DPWC(dpw.word, dpw.names, neighborhoods_fuzzy),
-    # DPWC(dpw.word, dpw.names, neighborhoods_fuzzy_nmf))
 
     return dpwc
 
 
-class DPW_Cache():
-    def __init__(self, n: int, ws, c: Cutoff = Cutoff.pareto20):
-        self.n = n
-        self.ws = ws
-        self.cache = {}
-        self.cutoff = c
-
-    
-
-    
-
-    def __str__(self):
-        return f'Cache: {list(self.cache.keys())}'
-
-    def __repr__(self):
-        return self.__str__()
-
-
 class DPWModel:
-    def __init__(self, corpus: Corpus, n: int = 3, l: int = 1, c: Cutoff = Cutoff.pareto80, latent=False):
+    def __init__(self, corpus: Corpus, n:int=3, l:int=1, c: Cutoff = Cutoff.pareto80, latent:bool=False, k:int=1):
         self.corpus = corpus
         self.n = n
         self.l = l
         self.c = c
+        self.k = k
         self.latent = latent
         self.profiles = {}
+        if latent:
+            self.cache = {}
         self.stop_words = set(nltk.corpus.stopwords.words('english'))
         self.stemmer = nltk.stem.PorterStemmer()
-        # Add latent capabilities to the model
-        # if latent:
-        #    self.cache = DPW_Cache()
 
-    def fit(self, terms: List[str]):
+    def fit(self, terms:List[str]):
         for t in terms:
             # check if the term already exists in the cache
             if t not in self.profiles:
-                # get the corpus
-                c = self.corpus.get(t)
-                n = extract_neighborhood(t, c, self.n, self.stemmer, self.stop_words, c=self.c, l=self.l)
-                self.profiles[t] = DPW(t, n)
+                profile = self[t]
+                if self.latent:
+                    _, Vra = latent_analysis(profile, self, d = self.k)
+                    self.profiles[t] = nmf_optimization(profile, Vra)
 
-    def similarity(self, w0: str, w1: str):
+    def similarity(self, w0:str, w1:str):
         return self.profiles[w0].similarity(self.profiles[w1])
-
-    def predict(self, w0: str, w1: str):
+    
+    def predict(self, w0:str, w1:str):
         return self.similarity(w0, w1)
     
     def __getitem__(self, key):
-        if key not in self.profiles:
-            c = self.corpus.get(key)
-            n = extract_neighborhood(key, c, self.n, self.stemmer, self.stop_words, l=self.l)
+        if self.latent:
+            d = self.cache
+        else:
+            d = self.profiles
+
+        if key not in d:
+            # get the corpus
+            corpus = self.corpus.get(key)
+            n = extract_neighborhood(key, corpus, self.n, self.stemmer, self.stop_words, c=self.c, l=self.l)
+            #word_neighborhood = extract_neighborhood(key, self.ws, self.n, self.cutoff)
             if len(n) == 0:
-                self.profiles[key] = None
+                d[key] = None
             else:
-                self.profiles[key] = DPW(key, n)
-        return self.profiles[key]
+                d[key] = DPW(key, n)
+        return d[key]
 
     def __len__(self):
-        return len(self.profiles)
+        if self.latent:
+            d = self.cache
+        else:
+            d = self.profiles
+        return len(d)
 
     def __str__(self):
         txt = ''
