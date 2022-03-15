@@ -25,22 +25,60 @@ from semantic.corpus import Corpus
 # , davies_bouldin_score
 #import skfuzzy as fuzz
 
-from typing import List
+from typing import Dict, List
 
 
 logger = logging.getLogger(__name__)
 
 
 class Cutoff(enum.Enum):
-    knee = 'knee'
     pareto20 = 'pareto20'
     pareto80 = 'pareto80'
+    knee = 'knee'
+    none = 'none'
 
     def __str__(self):
         return self.value
 
 
-def extract_neighborhood(target_word: str, corpus: List[str], n: int, stemmer, stop_words, l: int = 1, c: Cutoff = Cutoff.pareto80) -> dict:
+def cutoff_pareto20(neighborhood:Dict) -> int:
+    return int(len(neighborhood)*0.2)
+
+
+def cutoff_pareto80(neighborhood:Dict) -> int:
+    limit = len(neighborhood)
+    neighborhood_size = 0
+    for _, v in neighborhood:
+        neighborhood_size += v
+
+    goal = neighborhood_size*0.8
+
+    partial_goal = 0
+    for i in range(len(neighborhood)):
+        partial_goal += neighborhood[i][1]
+        if partial_goal >= goal:
+            limit = i
+            break
+    return limit
+
+
+def cutoff_knee(neighborhood:Dict) -> int:
+    points = []
+    for i in range(len(neighborhood)):
+        points.append([i, neighborhood[i][1]])
+    points = np.array(points)
+    limit = lmethod.knee(points)
+    return limit
+
+
+def extract_neighborhood(target_word: str, corpus:List[str], n: int, stemmer, stop_words, l:int=1, c: Cutoff = Cutoff.pareto80) -> dict:
+    switcher = {
+        Cutoff.knee: cutoff_knee,
+        Cutoff.pareto20: cutoff_pareto20,
+        Cutoff.pareto80: cutoff_pareto80,
+        Cutoff.none: lambda n: len(n)
+    }
+    
     #snippets = ws.search(target_word)
     stem_target_word = stemmer.stem(target_word)
     tokens = []
@@ -69,29 +107,7 @@ def extract_neighborhood(target_word: str, corpus: List[str], n: int, stemmer, s
     neighborhood.sort(key=lambda tup: tup[1], reverse=True)
 
     # Reduce the size of the vector
-    limit = len(neighborhood)
-    if c is Cutoff.pareto80:
-        neighborhood_size = 0
-        for _, v in neighborhood:
-            neighborhood_size += v
-
-        goal = neighborhood_size*0.8
-
-        partial_goal = 0
-        for i in range(len(neighborhood)):
-            partial_goal += neighborhood[i][1]
-            if partial_goal >= goal:
-                limit = i
-                break
-    elif c is Cutoff.pareto20:
-        limit = int(len(neighborhood)*0.2)
-    else:
-        points = []
-        for i in range(len(neighborhood)):
-            points.append([i, neighborhood[i][1]])
-        points = np.array(points)
-        limit = lmethod.knee(points)
-
+    limit = switcher[c](neighborhood)
     neighborhood = neighborhood[:limit]
 
     return neighborhood
