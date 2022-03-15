@@ -83,8 +83,7 @@ def extract_neighborhood(target_word: str, corpus:List[str], n: int, stemmer, st
     # Text Mining Pipeline
     for s in corpus:
         temp_tokens = nltk.word_tokenize(s)
-        filtered_tokens = [w.lower(
-        ) for w in temp_tokens if not w in stop_words and w.isalpha() and len(w) > 2]
+        filtered_tokens = [w.lower() for w in temp_tokens if w.lower() not in stop_words and w.isalpha() and len(w) > 2]
         tokens.extend(filtered_tokens)
     # Search for target word
     neighborhood = {}
