@@ -9,7 +9,6 @@ __status__ = 'Development'
 import enum
 import copy
 import nltk
-import scipy
 import pprint
 import logging
 import numpy as np
@@ -17,9 +16,8 @@ import numpy as np
 import nmf.nmf as nmf
 
 import knee.lmethod as lmethod
-import scipy.spatial.distance as ssd
-from scipy.cluster.hierarchy import linkage
 from sklearn.metrics import silhouette_score
+from sklearn.cluster import AgglomerativeClustering
 
 from semantic.corpus import Corpus
 
@@ -337,7 +335,7 @@ def latent_analysis(dpw: DPW, dpwm: 'DPWModel', d: int=1, seeds:List[int]=[23, 2
     return V, best_Vr
 
 
-def learn_dpwc(dpw: DPW, V: np.ndarray, Vr: np.ndarray, m: str = 'average'):
+def learn_dpwc(dpw: DPW, V: np.ndarray, linkage: str = 'average'):
     # load names and the right index
     names = dpw.get_names()
     idx_word = names.index(dpw.word)
@@ -345,60 +343,27 @@ def learn_dpwc(dpw: DPW, V: np.ndarray, Vr: np.ndarray, m: str = 'average'):
 
     values = V[idx_word, :]
     D = 1.0 - V
+    np.fill_diagonal(D, 0)
 
-    values_nmf = Vr[idx_word, :]
-    D_nmf = 1.0 - Vr
-
-    best_score = best_score_nmf = -1.0
-    best_n = best_n_nmf = 0
-    labels = labels_nmf = None
-
+    best_score = -1.0
+    best_n = 0
+    labels = None
     scores = []
-    scores_nmf = []
 
-    # Compute HC
-    ddgm = linkage(ssd.squareform(D), method=m)
-    ddgm_nmf = linkage(ssd.squareform(D_nmf), method=m)
-
-    # Hard and Soft Cluster
     for n in range(2, size_names-1):
-        cluster_labels = scipy.cluster.hierarchy.fcluster(
-            ddgm, n, criterion="maxclust")
-        cluster_labels_nmf = scipy.cluster.hierarchy.fcluster(
-            ddgm_nmf, n, criterion="maxclust")
+        agg = AgglomerativeClustering(n_clusters=n, affinity='precomputed', linkage = linkage)
+        cluster_labels = agg.fit_predict(D)
+        score = silhouette_score(D, cluster_labels, metric='precomputed')
+        scores.append(score)
+        if score > best_score:
+            best_n = n
+            best_score = score
+            labels = cluster_labels
 
-        # TODO: Use this: https://stackoverflow.com/questions/47535256/how-to-make-fcluster-to-return-the-same-output-as-cut-tree
-        try:
-            score = silhouette_score(D, cluster_labels, metric='precomputed')
-            scores.append(score)
-            if score > best_score:
-                best_n = n
-                best_score = score
-                labels = cluster_labels
-        except:
-            pass
-
-        try:
-            score_nmf = silhouette_score(
-                D_nmf, cluster_labels_nmf, metric='precomputed')
-            scores_nmf.append(score_nmf)
-            if score_nmf > best_score_nmf:
-                best_n_nmf = n
-                best_score_nmf = score
-                labels_nmf = cluster_labels
-        except:
-            pass
-
-    labels = [x-1 for x in labels]
-    labels_nmf = [x-1 for x in labels_nmf]
-    neighborhoods_kmeans = build_neighborhoods(names, values, best_n, labels)
-    neighborhoods_kmeans_nmf = build_neighborhoods(names, values_nmf, best_n_nmf, labels_nmf)
+    neighborhoods = build_neighborhoods(names, values, best_n, labels)
 
     # Build DPWCs
-    dpwc = (DPWC(dpw.word, dpw.names, neighborhoods_kmeans),
-            DPWC(dpw.word, dpw.names, neighborhoods_kmeans_nmf))
-
-    return dpwc
+    return DPWC(dpw.word, dpw.names, neighborhoods)
 
 
 class DPWModel:
@@ -419,10 +384,10 @@ class DPWModel:
         for t in terms:
             # check if the term already exists in the cache
             if t not in self.profiles:
-                profile = self[t]
+                dpw = self[t]
                 if self.latent:
-                    _, Vra = latent_analysis(profile, self, d = self.k)
-                    self.profiles[t] = nmf_optimization(profile, Vra)
+                    _, Vr = latent_analysis(dpw, self, d = self.k)
+                    self.profiles[t] = nmf_optimization(dpw, Vr)
 
     def similarity(self, w0:str, w1:str):
         return self.profiles[w0].similarity(self.profiles[w1])
@@ -431,6 +396,7 @@ class DPWModel:
         return self.similarity(w0, w1)
     
     def __getitem__(self, key):
+        # select the correct dictionary
         if self.latent:
             d = self.cache
         else:
@@ -439,12 +405,13 @@ class DPWModel:
         if key not in d:
             # get the corpus
             corpus = self.corpus.get(key)
+            # create the original dpw
             n = extract_neighborhood(key, corpus, self.n, self.stemmer, self.stop_words, c=self.c, l=self.l)
-            #word_neighborhood = extract_neighborhood(key, self.ws, self.n, self.cutoff)
             if len(n) == 0:
                 d[key] = None
             else:
                 d[key] = DPW(key, n)
+        
         return d[key]
 
     def __len__(self):
@@ -466,17 +433,28 @@ class DPWModel:
 
 class DPWCModel:
 
-    def __init__(self, corpus: Corpus, n: int = 3, l: int = 1, c: Cutoff = Cutoff.pareto80, latent=False):
+    def __init__(self, corpus: Corpus, n: int = 3, l: int = 1, c: Cutoff = Cutoff.pareto80, latent=False, k:int=1):
         self.latent = latent
         self.profiles = {}
-        self.dpws = DPWModel(corpus, n, l, c, False)
+        self.dpws = DPWModel(corpus, n, l, c, False, k)
 
     def fit(self, terms: List[str]):
         for t in terms:
             # check if the term already exists in the cache
             if t not in self.profiles:
                 dpw = self.dpws[t]
+                V, Vr = latent_analysis(dpw, self.dpws, d = self.dpws.k)
+                if self.latent:
+                    self.profiles[t] = learn_dpwc(dpw, Vr)
+                else:
+                    self.profiles[t] = learn_dpwc(dpw, V)
     
+    def similarity(self, w0:str, w1:str):
+        return self.profiles[w0].similarity(self.profiles[w1])
+    
+    def predict(self, w0:str, w1:str):
+        return self.similarity(w0, w1)
+
     def __str__(self):
         txt = ''
         for _, p in self.profiles.items():

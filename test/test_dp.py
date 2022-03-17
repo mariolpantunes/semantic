@@ -30,29 +30,55 @@ class TestDP(unittest.TestCase):
         }
         cls.corpus = corpus.DummyCorpus(dataset)
         cls.terms = ['banana', 'apple', 'peach']
-
-    def test_dp_00(self):
-        terms = ['banana', 'apple', 'peach']
-        model = dp.DPWModel(self.corpus, l=0, c=dp.Cutoff.none)
-        model.fit(terms)
-        result = model.similarity('banana', 'apple')
-        desired = 0.2581988897471611
-        self.assertAlmostEqual(result, desired, 2)
     
-    def test_dp_01(self):
+    def test_dp_00(self):
         terms = ['banana', 'apple', 'peach']
         model = dp.DPWModel(self.corpus, l=0, c=dp.Cutoff.none)
         model.fit(terms)
         result = model.similarity('banana', 'banana')
         desired = 1.0
         self.assertAlmostEqual(result, desired, 2)
-    
+
+    def test_dp_01(self):
+        terms = ['banana', 'apple', 'peach']
+        model = dp.DPWModel(self.corpus, l=0, c=dp.Cutoff.none)
+        model.fit(terms)
+        result = model.similarity('banana', 'apple')
+        desired = 0.2581988897471611
+        self.assertAlmostEqual(result, desired, 2)
+
     def test_dp_02(self):
         terms = ['banana', 'apple', 'peach']
         model = dp.DPWModel(self.corpus, l=0, c=dp.Cutoff.none, latent=True)
         model.fit(terms)
         result = model.similarity('banana', 'apple')
         desired = 0.2052976520781219
+        self.assertAlmostEqual(result, desired, 2)
+    
+    def test_dp_03(self):
+        terms = ['banana', 'apple', 'peach']
+        model = dp.DPWCModel(self.corpus, l=0, c=dp.Cutoff.none, latent=False)
+        model.fit(terms)
+        print(model)
+        result = model.similarity('banana', 'banana')
+        desired = 1.0
+        self.assertAlmostEqual(result, desired, 2)
+
+    def test_dp_04(self):
+        terms = ['banana', 'apple', 'peach']
+        model = dp.DPWCModel(self.corpus, l=0, c=dp.Cutoff.none, latent=False)
+        model.fit(terms)
+        result = model.similarity('banana', 'apple')
+        desired = 0.42000000000000004
+        self.assertAlmostEqual(result, desired, 2)
+    
+    def test_dp_05(self):
+        terms = ['banana', 'apple', 'peach']
+        model = dp.DPWCModel(self.corpus, l=0, c=dp.Cutoff.none, latent=True)
+        model.fit(terms)
+        print(model)
+        result = model.similarity('banana', 'apple')
+        desired = 0.14565747620922426
         self.assertAlmostEqual(result, desired, 2)
 
 if __name__ == '__main__':
