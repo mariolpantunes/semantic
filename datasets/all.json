@@ -1,0 +1,298 @@
+#Services
+
+#Service
+
+{"name": "/it/domotic/temp", "id": 0, "meta" : "input: X, output: Y, location: Z", "description": ["temperature", "air", "indoor", "domotic"]}
+{"name": "/it/city/parking", "id": 1, "meta" : "input: X, output: Y, location: Z", "description": ["magnetic", "field", "parking", "city"]}
+{"name": "/it/environment/temp", "id": 2, "meta" : "input: X, output: Y, location: Z", "description": ["temperature", "forest", "fire", "environment"]}
+{"name": "/it/water/quality", "id": 3, "meta" : "input: X, output: Y, location: Z", "description": ["pH", "quality", "potable", "water"]}
+{"name": "/it/farming/ch4", "id": 4, "meta" : "input: X, output: Y, location: Z", "description": ["CH4", "gases", "toxic", "farming"]}
+{"name": "/it/agriculture/moisture", "id": 5, "meta" : "input: X, output: Y, location: Z", "description": ["moisture", "greenhouse", "soil", "agriculture"]}
+{"name": "/it/health/pulse", "id": 6, "meta" : "input: X, output: Y, location: Z", "description": ["pulse", "count", "sportsman", "health"]}
+{"name": "/it/security/isobutane", "id": 7, "meta" : "input: X, output: Y, location: Z", "description": ["isobutane", "gases", "explosive", "security"]}
+{"name": "/it/logistic/gps", "id": 8, "meta" : "input: X, output: Y, location: Z", "description": ["gps", "fleet", "tracking", "logistic"]}
+{"name": "/it/industrial/ozone", "id": 9, "meta" : "input: X, output: Y, location: Z", "description": ["ozone", "presence", "gases", "industrial"]}
+{"name": "/it/domotic/door", "id": 10, "meta" : "input: X, output: Y, location: Z", "description": ["infrared", "door", "intrusion", "domotic"]}
+{"name": "/it/city/noise", "id": 11, "meta" : "input: X, output: Y, location: Z", "description": ["microphone", "ambient", "noise", "city"]}
+{"name": "/it/environment/level", "id": 12, "meta" : "input: X, output: Y, location: Z", "description": ["level", "ultrasound", "snow", "environment"]}
+{"name": "/it/water/flow", "id": 13, "meta" : "input: X, output: Y, location: Z", "description": ["flow", "liquid", "leakage", "water"]}
+{"name": "/it/farming/humidity", "id": 14, "meta" : "input: X, output: Y, location: Z", "description": ["humidity", "gases", "offspring", "farming"]}
+{"name": "/it/agriculture/wetness", "id": 15, "meta" : "input: X, output: Y, location: Z", "description": ["wetness", "leaf", "greenhouse", "agriculture"]}
+{"name": "/it/health/respiration", "id": 16, "meta" : "input: X, output: Y, location: Z", "description": ["respiration", "patient", "surveillance", "health"]}
+{"name": "/it/security/gamma", "id": 17, "meta" : "input: X, output: Y, location: Z", "description": ["gamma", "level", "radiation", "security"]}
+{"name": "/it/logistic/location", "id": 18, "meta" : "input: X, output: Y, location: Z", "description": ["tag", "location", "item", "logistic"]}
+{"name": "/it/industrial/CO2", "id": 19, "meta" : "input: X, output: Y, location: Z", "description": ["CO2", "quality", "air", "industrial"]}
+{"name": "/it/domotic/voltage", "id": 20, "meta" : "input: X, output: Y, location: Z", "description": ["voltage", "level", "metering", "domotic"]}
+{"name": "/it/city/light", "id": 21, "meta" : "input: X, output: Y, location: Z", "description": ["light", "control", "road", "city"]}
+{"name": "/it/environment/", "id": 22, "meta" : "input: X, output: Y, location: Z", "description": ["accelerometer", "detection", "earthquake", "environment"]}
+{"name": "/it/water/floods", "id": 23, "meta" : "input: X, output: Y, location: Z", "description": ["ultrasound", "floods", "river", "water"]}
+{"name": "/it/farming/tag", "id": 24, "meta" : "input: X, output: Y, location: Z", "description": ["tag", "passive", "tracking", "farming"]}
+{"name": "/it/agriculture/wind", "id": 25, "meta" : "input: X, output: Y, location: Z", "description": ["wind", "speed", "meteorological", "agriculture"]}
+{"name": "/it/health/fall", "id": 26, "meta" : "input: X, output: Y, location: Z", "description": ["fall", "accelerometer", "detection", "health"]}
+{"name": "/it/security/water", "id": 27, "meta" : "input: X, output: Y, location: Z", "description": ["water", "presence", "liquid", "security"]}
+{"name": "/it/logistic/vibration", "id": 28, "meta" : "input: X, output: Y, location: Z", "description": ["vibrations", "condition", "shipment", "logistic"]}
+{"name": "/it/industrial/vibration", "id": 29, "meta" : "input: X, output: Y, location: Z", "description": ["accelerometer", "vibration", "device", "industrial"]}
+
+
+#Queries
+
+#Machine to Machine
+
+{"id": 0000, "query": ["temperature", "air", "indoor", "domotic"]}
+{"id": 0001, "query": ["magnetic", "field", "parking", "city"]}
+{"id": 0002, "query": ["temperature", "forest", "fire", "environment"]}
+{"id": 0003, "query": ["pH", "quality", "potable", "water"]}
+{"id": 0004, "query": ["CH4", "gases", "toxic", "farming"]}
+{"id": 0005, "query": ["moisture", "greenhouse", "soil", "agriculture"]}
+{"id": 0006, "query": ["pulse", "count", "sportsman", "health"]}
+{"id": 0007, "query": ["isobutane", "gases", "explosive", "security"]}
+{"id": 0008, "query": ["gps", "fleet", "tracking", "logistic"]}
+{"id": 0009, "query": ["ozone", "presence", "gases", "industrial"]}
+{"id": 0010, "query": ["infrared", "door", "intrusion", "domotic"]}
+{"id": 0011, "query": ["microphone", "ambient", "noise", "city"]}
+{"id": 0012, "query": ["level", "ultrasound", "snow", "environment"]}
+{"id": 0013, "query": ["flow", "liquid", "leakage", "water"]}
+{"id": 0014, "query": ["humidity", "gases", "offspring", "farming"]}
+{"id": 0015, "query": ["wetness", "leaf", "greenhouse", "agriculture"]}
+{"id": 0016, "query": ["respiration", "patient", "surveillance", "health"]}
+{"id": 0017, "query": ["gamma", "level", "radiation", "security"]}
+{"id": 0018, "query": ["tag", "location", "item", "logistic"]}
+{"id": 0019, "query": ["CO2", "quality", "air", "industrial"]}
+{"id": 0020, "query": ["voltage", "level", "metering", "domotic"]}
+{"id": 0021, "query": ["light", "control", "road", "city"]}
+{"id": 0022, "query": ["accelerometer", "detection", "earthquake", "environment"]}
+{"id": 0023, "query": ["ultrasound", "floods", "river", "water"]}
+{"id": 0024, "query": ["tag", "passive", "tracking", "farming"]}
+{"id": 0025, "query": ["wind", "speed", "meteorological", "agriculture"]}
+{"id": 0026, "query": ["fall", "accelerometer", "detection", "health"]}
+{"id": 0027, "query": ["water", "presence", "liquid", "security"]}
+{"id": 0028, "query": ["vibrations", "condition", "shipment", "logistic"]}
+{"id": 0029, "query": ["accelerometer", "vibration", "device", "industrial"]}
+
+#Engineer to Machine
+
+#One-Error
+{"id": 1000, "query": ["temperatures", "air", "indoor", "domotic"]}
+{"id": 1001, "query": ["magnetics", "field", "parking", "city"]}
+{"id": 1002, "query": ["temperatures", "forest", "fire", "environment"]}
+{"id": 1003, "query": ["pHs", "quality", "potable", "water"]}
+{"id": 1004, "query": ["CH4s", "gases", "toxic", "farming"]}
+{"id": 1005, "query": ["moistures", "greenhouse", "soil", "agriculture"]}
+{"id": 1006, "query": ["pulses", "count", "sportsman", "health"]}
+{"id": 1007, "query": ["isobutanes", "gases", "explosive", "security"]}
+{"id": 1008, "query": ["gpss", "fleet", "tracking", "logistic"]}
+{"id": 1009, "query": ["ozones", "presence", "gases", "industrial"]}
+{"id": 1010, "query": ["infrareds", "door", "intrusion", "domotic"]}
+{"id": 1011, "query": ["microphones", "ambient", "noise", "city"]}
+{"id": 1012, "query": ["levels", "ultrasound", "snow", "environment"]}
+{"id": 1013, "query": ["flows", "liquid", "leakage", "water"]}
+{"id": 1014, "query": ["humiditys", "gases", "offspring", "farming"]}
+{"id": 1015, "query": ["wetnesss", "leaf", "greenhouse", "agriculture"]}
+{"id": 1016, "query": ["respirations", "patient", "surveillance", "health"]}
+{"id": 1017, "query": ["gammas", "level", "radiation", "security"]}
+{"id": 1018, "query": ["tags", "location", "item", "logistic"]}
+{"id": 1019, "query": ["CO2s", "quality", "air", "industrial"]}
+{"id": 1020, "query": ["voltages", "level", "metering", "domotic"]}
+{"id": 1021, "query": ["lights", "control", "road", "city"]}
+{"id": 1022, "query": ["accelerometers", "detection", "earthquake", "environment"]}
+{"id": 1023, "query": ["ultrasounds", "floods", "river", "water"]}
+{"id": 1024, "query": ["tags", "passive", "tracking", "farming"]}
+{"id": 1025, "query": ["winds", "speed", "meteorological", "agriculture"]}
+{"id": 1026, "query": ["falls", "accelerometer", "detection", "health"]}
+{"id": 1027, "query": ["waters", "presence", "liquid", "security"]}
+{"id": 1028, "query": ["vibrationss", "condition", "shipment", "logistic"]}
+{"id": 1029, "query": ["accelerometers", "vibration", "device", "industrial"]}
+
+#Two-Error-One-Word
+{"id": 1100, "query": ["temperaturis", "air", "indoor", "domotic"]}
+{"id": 1101, "query": ["magnetiis", "field", "parking", "city"]}
+{"id": 1102, "query": ["temperaturis", "forest", "fire", "environment"]}
+{"id": 1103, "query": ["pis", "quality", "potable", "water"]}
+{"id": 1104, "query": ["CHis", "gases", "toxic", "farming"]}
+{"id": 1105, "query": ["moisturis", "greenhouse", "soil", "agriculture"]}
+{"id": 1106, "query": ["pulsis", "count", "sportsman", "health"]}
+{"id": 1107, "query": ["isobutanis", "gases", "explosive", "security"]}
+{"id": 1108, "query": ["gpis", "fleet", "tracking", "logistic"]}
+{"id": 1109, "query": ["ozonis", "presence", "gases", "industrial"]}
+{"id": 1110, "query": ["infrareis", "door", "intrusion", "domotic"]}
+{"id": 1111, "query": ["microphonis", "ambient", "noise", "city"]}
+{"id": 1112, "query": ["leveis", "ultrasound", "snow", "environment"]}
+{"id": 1113, "query": ["flois", "liquid", "leakage", "water"]}
+{"id": 1114, "query": ["humiditis", "gases", "offspring", "farming"]}
+{"id": 1115, "query": ["wetnesis", "leaf", "greenhouse", "agriculture"]}
+{"id": 1116, "query": ["respiratiois", "patient", "surveillance", "health"]}
+{"id": 1117, "query": ["gammis", "level", "radiation", "security"]}
+{"id": 1118, "query": ["tais", "location", "item", "logistic"]}
+{"id": 1119, "query": ["COis", "quality", "air", "industrial"]}
+{"id": 1120, "query": ["voltagis", "level", "metering", "domotic"]}
+{"id": 1121, "query": ["lighis", "control", "road", "city"]}
+{"id": 1122, "query": ["accelerometeis", "detection", "earthquake", "environment"]}
+{"id": 1123, "query": ["ultrasounis", "floods", "river", "water"]}
+{"id": 1124, "query": ["tais", "passive", "tracking", "farming"]}
+{"id": 1125, "query": ["winis", "speed", "meteorological", "agriculture"]}
+{"id": 1126, "query": ["falis", "accelerometer", "detection", "health"]}
+{"id": 1127, "query": ["wateis", "presence", "liquid", "security"]}
+{"id": 1128, "query": ["vibrationis", "condition", "shipment", "logistic"]}
+{"id": 1129, "query": ["accelerometeis", "vibration", "device", "industrial"]}
+
+#Two-Error-Two-Words
+{"id": 1200, "query": ["temperatures", "airs", "indoor", "domotic"]}
+{"id": 1201, "query": ["magnetics", "fields", "parking", "city"]}
+{"id": 1202, "query": ["temperatures", "forests", "fire", "environment"]}
+{"id": 1203, "query": ["pHs", "qualitys", "potable", "water"]}
+{"id": 1204, "query": ["CH4s", "gasess", "toxic", "farming"]}
+{"id": 1205, "query": ["moistures", "greenhouses", "soil", "agriculture"]}
+{"id": 1206, "query": ["pulses", "counts", "sportsman", "health"]}
+{"id": 1207, "query": ["isobutanes", "gasess", "explosive", "security"]}
+{"id": 1208, "query": ["gpss", "fleets", "tracking", "logistic"]}
+{"id": 1209, "query": ["ozones", "presences", "gases", "industrial"]}
+{"id": 1210, "query": ["infrareds", "doors", "intrusion", "domotic"]}
+{"id": 1211, "query": ["microphones", "ambients", "noise", "city"]}
+{"id": 1212, "query": ["levels", "ultrasounds", "snow", "environment"]}
+{"id": 1213, "query": ["flows", "liquids", "leakage", "water"]}
+{"id": 1214, "query": ["humiditys", "gasess", "offspring", "farming"]}
+{"id": 1215, "query": ["wetnesss", "leafs", "greenhouse", "agriculture"]}
+{"id": 1216, "query": ["respirations", "patients", "surveillance", "health"]}
+{"id": 1217, "query": ["gammas", "levels", "radiation", "security"]}
+{"id": 1218, "query": ["tags", "locations", "item", "logistic"]}
+{"id": 1219, "query": ["CO2s", "qualitys", "air", "industrial"]}
+{"id": 1220, "query": ["voltages", "levels", "metering", "domotic"]}
+{"id": 1221, "query": ["lights", "controls", "road", "city"]}
+{"id": 1222, "query": ["accelerometers", "detections", "earthquake", "environment"]}
+{"id": 1223, "query": ["ultrasounds", "floodss", "river", "water"]}
+{"id": 1224, "query": ["tags", "passives", "tracking", "farming"]}
+{"id": 1225, "query": ["winds", "speeds", "meteorological", "agriculture"]}
+{"id": 1226, "query": ["falls", "accelerometers", "detection", "health"]}
+{"id": 1227, "query": ["waters", "presences", "liquid", "security"]}
+{"id": 1228, "query": ["vibrationss", "conditions", "shipment", "logistic"]}
+{"id": 1229, "query": ["accelerometers", "vibrations", "device", "industrial"]}
+
+#User to Machine
+
+#One-Synonym
+{"id": 2000, "query": ["heat", "air", "indoor", "domotic"]}
+{"id": 2001, "query": ["iman", "field", "parking", "city"]}
+{"id": 2002, "query": ["heat", "forest", "fire", "environment"]}
+{"id": 2003, "query": ["acidity", "quality", "potable", "water"]}
+{"id": 2004, "query": ["methane", "gases", "toxic", "farming"]}
+{"id": 2005, "query": ["humidity", "greenhouse", "soil", "agriculture"]}
+{"id": 2006, "query": ["heartbeat", "count", "sportsman", "health"]}
+{"id": 2007, "query": ["C4H10", "gases", "explosive", "security"]}
+{"id": 2008, "query": ["satellite", "fleet", "tracking", "logistic"]}
+{"id": 2009, "query": ["O3", "presence", "gases", "industrial"]}
+{"id": 2010, "query": ["IR", "door", "intrusion", "domotic"]}
+{"id": 2011, "query": ["mic", "ambient", "noise", "city"]}
+{"id": 2012, "query": ["height", "ultrasound", "snow", "environment"]}
+{"id": 2013, "query": ["circulation", "liquid", "leakage", "water"]}
+{"id": 2014, "query": ["wetness", "gases", "offspring", "farming"]}
+{"id": 2015, "query": ["moisture", "leaf", "greenhouse", "agriculture"]}
+{"id": 2016, "query": ["breathing", "patient", "surveillance", "health"]}
+{"id": 2017, "query": ["ionizing", "level", "radiation", "security"]}
+{"id": 2018, "query": ["id", "location", "item", "logistic"]}
+{"id": 2019, "query": ["dioxide", "quality", "air", "industrial"]}
+{"id": 2020, "query": ["tension", "level", "metering", "domotic"]}
+{"id": 2021, "query": ["illumination", "control", "road", "city"]}
+{"id": 2022, "query": ["speedometer", "detection", "earthquake", "environment"]}
+{"id": 2023, "query": ["wave", "floods", "river", "water"]}
+{"id": 2024, "query": ["id", "passive", "tracking", "farming"]}
+{"id": 2025, "query": ["breeze", "speed", "meteorological", "agriculture"]}
+{"id": 2026, "query": ["drop", "accelerometer", "detection", "health"]}
+{"id": 2027, "query": ["H2O", "presence", "liquid", "security"]}
+{"id": 2028, "query": ["oscillations", "condition", "shipment", "logistic"]}
+{"id": 2029, "query": ["speedometer", "vibration", "device", "industrial"]}
+
+#Two-Synonyms
+{"id": 2100, "query": ["heat", "ambient", "indoor", "domotic"]}
+{"id": 2101, "query": ["iman", "force", "parking", "city"]}
+{"id": 2102, "query": ["heat", "trees", "fire", "environment"]}
+{"id": 2103, "query": ["acidity", "condition", "potable", "water"]}
+{"id": 2104, "query": ["methane", "fumes", "toxic", "farming"]}
+{"id": 2105, "query": ["humidity", "hothouse", "soil", "agriculture"]}
+{"id": 2106, "query": ["heartbeat", "number", "sportsman", "health"]}
+{"id": 2107, "query": ["C4H10", "fumes", "explosive", "security"]}
+{"id": 2108, "query": ["satellite", "expedition", "tracking", "logistic"]}
+{"id": 2109, "query": ["O3", "existence", "gases", "industrial"]}
+{"id": 2110, "query": ["IR", "gate", "intrusion", "domotic"]}
+{"id": 2111, "query": ["mic", "surrounding", "noise", "city"]}
+{"id": 2112, "query": ["height", "wave", "snow", "environment"]}
+{"id": 2113, "query": ["circulation", "material", "leakage", "water"]}
+{"id": 2114, "query": ["wetness", "air", "offspring", "farming"]}
+{"id": 2115, "query": ["moisture", "frond", "greenhouse", "agriculture"]}
+{"id": 2116, "query": ["breathing", "sick", "surveillance", "health"]}
+{"id": 2117, "query": ["ionizing", "value", "radiation", "security"]}
+{"id": 2118, "query": ["id", "position", "item", "logistic"]}
+{"id": 2119, "query": ["dioxide", "pollution", "air", "industrial"]}
+{"id": 2120, "query": ["tension", "value", "metering", "domotic"]}
+{"id": 2121, "query": ["illumination", "management", "road", "city"]}
+{"id": 2122, "query": ["speedometer", "diagnosis", "earthquake", "environment"]}
+{"id": 2123, "query": ["wave", "inundation", "river", "water"]}
+{"id": 2124, "query": ["id", "RFID", "tracking", "farming"]}
+{"id": 2125, "query": ["breeze", "force", "meteorological", "agriculture"]}
+{"id": 2126, "query": ["drop", "speedometer", "detection", "health"]}
+{"id": 2127, "query": ["H2O", "detection", "liquid", "security"]}
+{"id": 2128, "query": ["oscillations", "quality", "shipment", "logistic"]}
+{"id": 2129, "query": ["speedometer", "shake", "device", "industrial"]}
+
+#Three-Synonyms
+{"id": 2200, "query": ["heat", "ambient", "room", "domotic"]}
+{"id": 2201, "query": ["iman", "force", "place", "city"]}
+{"id": 2202, "query": ["heat", "trees", "flame", "environment"]}
+{"id": 2203, "query": ["acidity", "condition", "drinkable", "water"]}
+{"id": 2204, "query": ["methane", "fumes", "hazardous", "farming"]}
+{"id": 2205, "query": ["humidity", "hothouse", "ground", "agriculture"]}
+{"id": 2206, "query": ["heartbeat", "number", "athlete", "health"]}
+{"id": 2207, "query": ["C4H10", "fumes", "flammable", "security"]}
+{"id": 2208, "query": ["satellite", "expedition", "tracing", "logistic"]}
+{"id": 2209, "query": ["O3", "existence", "fumes", "industrial"]}
+{"id": 2210, "query": ["IR", "gate", "invasion", "domotic"]}
+{"id": 2211, "query": ["mic", "surrounding", "sound", "city"]}
+{"id": 2212, "query": ["height", "wave", "snowfall", "environment"]}
+{"id": 2213, "query": ["circulation", "material", "escape", "water"]}
+{"id": 2214, "query": ["wetness", "air", "children", "farming"]}
+{"id": 2215, "query": ["moisture", "frond", "hothouse", "agriculture"]}
+{"id": 2216, "query": ["breathing", "sick", "monitoring", "health"]}
+{"id": 2217, "query": ["ionizing", "value", "emission", "security"]}
+{"id": 2218, "query": ["id", "position", "thing", "logistic"]}
+{"id": 2219, "query": ["dioxide", "pollution", "gases", "industrial"]}
+{"id": 2220, "query": ["tension", "value", "control", "domotic"]}
+{"id": 2221, "query": ["illumination", "management", "street", "city"]}
+{"id": 2222, "query": ["speedometer", "diagnosis", "temblor", "environment"]}
+{"id": 2223, "query": ["wave", "inundation", "watercourse", "water"]}
+{"id": 2224, "query": ["id", "RFID", "tracing", "farming"]}
+{"id": 2225, "query": ["breeze", "force", "weather", "agriculture"]}
+{"id": 2226, "query": ["drop", "speedometer", "presence", "health"]}
+{"id": 2227, "query": ["H2O", "detection", "fluid", "security"]}
+{"id": 2228, "query": ["oscillations", "quality", "feet", "logistic"]}
+{"id": 2229, "query": ["speedometer", "shake", "thing", "industrial"]}
+
+#Four-Synonyms
+{"id": 2300, "query": ["heat", "ambient", "room", "home"]}
+{"id": 2301, "query": ["iman", "force", "place", "town"]}
+{"id": 2302, "query": ["heat", "trees", "flame", "habitat"]}
+{"id": 2303, "query": ["acidity", "condition", "drinkable", "H2O"]}
+{"id": 2304, "query": ["methane", "fumes", "hazardous", "ranching"]}
+{"id": 2305, "query": ["humidity", "hothouse", "ground", "cultivation"]}
+{"id": 2306, "query": ["heartbeat", "number", "athlete", "well-being"]}
+{"id": 2307, "query": ["C4H10", "fumes", "flammable", "safety"]}
+{"id": 2308, "query": ["satellite", "expedition", "tracing", "planning"]}
+{"id": 2309, "query": ["O3", "existence", "fumes", "factory"]}
+{"id": 2310, "query": ["IR", "gate", "invasion", "home"]}
+{"id": 2311, "query": ["mic", "surrounding", "sound", "town"]}
+{"id": 2312, "query": ["height", "wave", "snowfall", "habitat"]}
+{"id": 2313, "query": ["circulation", "material", "escape", "H2O"]}
+{"id": 2314, "query": ["wetness", "air", "children", "ranching"]}
+{"id": 2315, "query": ["moisture", "frond", "hothouse", "cultivation"]}
+{"id": 2316, "query": ["breathing", "sick", "monitoring", "well-being"]}
+{"id": 2317, "query": ["ionizing", "value", "emission", "safety"]}
+{"id": 2318, "query": ["id", "position", "thing", "planning"]}
+{"id": 2319, "query": ["dioxide", "pollution", "gases", "factory"]}
+{"id": 2320, "query": ["tension", "value", "control", "home"]}
+{"id": 2321, "query": ["illumination", "management", "street", "town"]}
+{"id": 2322, "query": ["speedometer", "diagnosis", "temblor", "habitat"]}
+{"id": 2323, "query": ["wave", "inundation", "watercourse", "H2O"]}
+{"id": 2324, "query": ["id", "RFID", "tracing", "ranching"]}
+{"id": 2325, "query": ["breeze", "force", "weather", "cultivation"]}
+{"id": 2326, "query": ["drop", "speedometer", "presence", "well-being"]}
+{"id": 2327, "query": ["H2O", "detection", "fluid", "safety"]}
+{"id": 2328, "query": ["oscillations", "quality", "feet", "planning"]}
+{"id": 2329, "query": ["speedometer", "shake", "thing", "factory"]}
