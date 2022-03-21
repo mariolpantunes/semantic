@@ -172,7 +172,10 @@ class DPW:
         return [(k, v) for k, v in self.names.items()]
 
     def similarity(self, dpw: 'DPW') -> float:
-        return dpw_similarity(self.neighborhood, dpw.neighborhood)
+        if self.word == dpw.word:
+            return 1.0
+        else:
+            return dpw_similarity(self.neighborhood, dpw.neighborhood)
 
     def __getitem__(self, key):
         if key in self.neighborhood:
@@ -197,15 +200,18 @@ class DPWC:
         self.neighborhood = neighborhood
 
     def similarity(self, dpwc: 'DPWC') -> float:
-        similarities = []
-        for n_a, a_a in self.neighborhood:
-            for n_b, a_b in dpwc.neighborhood:
-                similarity = dpw_similarity(n_a, n_b)
-                similarity_with_affinity = similarity*((a_a+a_b)/2.0)
-                #logger.debug('%s\n%s\nS=%s/%s\n\n', n_a, n_b, similarity, similarity_with_affinity)
-                similarities.append(similarity_with_affinity)
+        if self.word == dpwc.word:
+            return 1.0
+        else:
+            similarities = []
+            for n_a, a_a in self.neighborhood:
+                for n_b, a_b in dpwc.neighborhood:
+                    similarity = dpw_similarity(n_a, n_b)
+                    similarity_with_affinity = similarity*((a_a+a_b)/2.0)
+                    #logger.debug('%s\n%s\nS=%s/%s\n\n', n_a, n_b, similarity, similarity_with_affinity)
+                    similarities.append(similarity_with_affinity)
 
-        return max(similarities)
+            return max(similarities)
 
     def __str__(self):
         names = pprint.pformat(self.names)
