@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 class CWS:
-    def __init__(self, key):
+    def __init__(self, key:str):
         self.key = key
         self.url = 'https://contextualwebsearch-websearch-v1.p.rapidapi.com/api/Search/WebSearchAPI'
         self.headers  = {'x-rapidapi-key': key,'x-rapidapi-host': 'contextualwebsearch-websearch-v1.p.rapidapi.com'}

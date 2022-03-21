@@ -7,6 +7,7 @@ __status__ = 'Development'
 
 
 import logging
+import semantic.search as search
 from abc import ABC, abstractmethod
 from typing import Dict, List
 
@@ -28,5 +29,10 @@ class DummyCorpus(Corpus):
 
 
 class WebCorpus(Corpus):
-    def __init__(self):
-        pass
+    
+    def __init__(self, key:str, path:str):
+        cws = search.CWS(key)
+        self.cs = search.CacheSearch(ws, path)
+
+    def get(self, term: str):
+        return self.cs.search(term)
