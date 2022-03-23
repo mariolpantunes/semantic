@@ -387,11 +387,10 @@ class DPWModel:
         self.stemmer = nltk.stem.PorterStemmer()
 
     def _fit(self, term:str):
-        dpw = self[t]
+        dpw = self[term]
         if self.latent:
             _, Vr = latent_analysis(dpw, self, d = self.k)
             self.profiles[t] = nmf_optimization(dpw, Vr)
-
 
     def fit(self, terms:List[str]):
         for t in terms:
