@@ -81,7 +81,7 @@ def extract_neighborhood(target_word: str, corpus:List[str], n: int, stemmer, st
     # Text Mining Pipeline
     for s in corpus:
         temp_tokens = nltk.word_tokenize(s)
-        filtered_tokens = [w.lower() for w in temp_tokens if w.lower() not in stop_words and w.isalpha() and len(w) > 2]
+        filtered_tokens = [w.lower() for w in temp_tokens if w.lower() not in stop_words and w.isalnum() and len(w) > l]
         tokens.extend(filtered_tokens)
     # Search for target word
     neighborhood = {}
@@ -386,16 +386,28 @@ class DPWModel:
         self.stop_words = set(nltk.corpus.stopwords.words('english'))
         self.stemmer = nltk.stem.PorterStemmer()
 
+    def _fit(self, term:str):
+        dpw = self[t]
+        if self.latent:
+            _, Vr = latent_analysis(dpw, self, d = self.k)
+            self.profiles[t] = nmf_optimization(dpw, Vr)
+
+
     def fit(self, terms:List[str]):
         for t in terms:
             # check if the term already exists in the cache
             if t not in self.profiles:
-                dpw = self[t]
-                if self.latent:
-                    _, Vr = latent_analysis(dpw, self, d = self.k)
-                    self.profiles[t] = nmf_optimization(dpw, Vr)
+                self._fit(t)
+                #dpw = self[t]
+                #if self.latent:
+                #    _, Vr = latent_analysis(dpw, self, d = self.k)
+                #    self.profiles[t] = nmf_optimization(dpw, Vr)
 
     def similarity(self, w0:str, w1:str):
+        if w0 not in self.profiles:
+            self._fit(w0)
+        if w1 not in self.profiles:
+            self._fit(w1)
         return self.profiles[w0].similarity(self.profiles[w1])
     
     def predict(self, w0:str, w1:str):
