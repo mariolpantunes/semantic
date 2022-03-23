@@ -32,7 +32,7 @@ class WebCorpus(Corpus):
     
     def __init__(self, key:str, path:str):
         cws = search.CWS(key)
-        self.cs = search.CacheSearch(ws, path)
+        self.cs = search.CacheSearch(cws, path)
 
     def get(self, term: str):
         return self.cs.search(term)
