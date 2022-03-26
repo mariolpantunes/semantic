@@ -11,10 +11,10 @@ import copy
 import nltk
 import pprint
 import logging
+import operator
+import functools
 import numpy as np
-
 import nmf.nmf as nmf
-
 import knee.lmethod as lmethod
 from sklearn.metrics import silhouette_score
 from sklearn.cluster import AgglomerativeClustering
@@ -22,6 +22,7 @@ from sklearn.cluster import AgglomerativeClustering
 from semantic.corpus import Corpus
 
 from typing import Dict, List
+from joblib import Parallel, delayed
 
 
 logger = logging.getLogger(__name__)
@@ -67,6 +68,16 @@ def cutoff_knee(neighborhood:Dict) -> int:
     return limit
 
 
+def sentences_to_tokens(s:str, stem_target_word:str, stemmer, stop_words, l:int)->List[str]:
+    temp_tokens = nltk.word_tokenize(s)
+    filtered_tokens = []
+    for w in temp_tokens:
+        ws = stemmer.stem(w.lower())
+        if ws is stem_target_word or ws not in stop_words and w.isalpha() and len(w) > l:
+            filtered_tokens.append(ws)
+    return filtered_tokens
+
+
 def extract_neighborhood(target_word: str, corpus:List[str], n: int, stemmer, stop_words, l:int=1, c: Cutoff = Cutoff.pareto80) -> Dict:
     switcher = {
         Cutoff.knee: cutoff_knee,
@@ -76,17 +87,17 @@ def extract_neighborhood(target_word: str, corpus:List[str], n: int, stemmer, st
     }
     
     #snippets = ws.search(target_word)
-    stem_target_word = stemmer.stem(target_word)
-    tokens = []
+    stem_target_word = stemmer.stem(target_word.lower())
+    
     # Text Mining Pipeline
-    for s in corpus:
-        temp_tokens = nltk.word_tokenize(s)
-        filtered_tokens = [w.lower() for w in temp_tokens if w.lower() not in stop_words and w.isalnum() and len(w) > l]
-        tokens.extend(filtered_tokens)
+    tokens = Parallel(n_jobs=-1)(delayed(sentences_to_tokens)(s, stem_target_word, stemmer, stop_words, l) for s in corpus)
+    tokens = functools.reduce(operator.iconcat, tokens, [])
+
     # Search for target word
     neighborhood = {}
     for i in range(len(tokens)):
-        st = stemmer.stem(tokens[i])
+        #st = stemmer.stem(tokens[i])
+        st = tokens[i]
         if st == stem_target_word:
             start = max(0, i-n)
             stop = min(len(tokens), i+n+1)
@@ -108,6 +119,7 @@ def extract_neighborhood(target_word: str, corpus:List[str], n: int, stemmer, st
     return neighborhood
 
 
+#TODO: improve performance
 def dpw_similarity(n_a: dict, n_b: dict) -> float:
     features_a = list(n_a.keys())
     features_b = list(n_b.keys())
@@ -132,10 +144,9 @@ def dpw_similarity(n_a: dict, n_b: dict) -> float:
     norm_b = np.linalg.norm(b)
 
     if norm_a == 0 or norm_b == 0:
-        #raise Exception(f'Dict_A\n{n_a}\nDict_B\n{n_b}\nFeatures\n{features}\nA: {a}\nB: {b}')
         return 0.0
-
-    return np.dot(a, b)/(norm_a*norm_b)
+    else:
+        return np.dot(a, b)/(norm_a*norm_b)
 
 
 class DPW:
@@ -207,8 +218,7 @@ class DPWC:
             for n_a, a_a in self.neighborhood:
                 for n_b, a_b in dpwc.neighborhood:
                     similarity = dpw_similarity(n_a, n_b)
-                    similarity_with_affinity = similarity*((a_a+a_b)/2.0)
-                    #logger.debug('%s\n%s\nS=%s/%s\n\n', n_a, n_b, similarity, similarity_with_affinity)
+                    similarity_with_affinity = similarity*((a_a + a_b)/2.0)
                     similarities.append(similarity_with_affinity)
 
             return max(similarities)
@@ -242,9 +252,8 @@ def nmf_optimization(dpw: DPW, Vr: np.ndarray) -> DPW:
 
 
 def build_neighborhoods(names, values, n, labels):
-    if max(labels) >= n:
-        raise Exception(
-            f'Labels {labels} should not have value bigger than n ({n})')
+    if max(labels) > n:
+        raise Exception(f'Labels {labels} should not have value bigger than n ({n})')
 
     neighborhoods = [[{}, 0] for i in range(n)]
     for i in range(len(labels)):
@@ -289,7 +298,7 @@ def rank(array, reverse=False):
     return [sorted(array, reverse=reverse).index(x) for x in array]
 
 
-def latent_analysis(dpw: DPW, dpwm: 'DPWModel', d: int=1, seeds:List[int]=[23, 29, 67, 71, 863, 937, 941, 997]):
+def latent_analysis(dpw: DPW, dpwm: 'DPWModel', d: int=1, seeds:List[int]=[19, 23, 29]):
     # pre-load all neighboors and remove neighborhood with weak profiles
     names = dpw.get_names()
     for s, w in names:
@@ -317,6 +326,7 @@ def latent_analysis(dpw: DPW, dpwm: 'DPWModel', d: int=1, seeds:List[int]=[23, 2
     #np.fill_diagonal(V, 1.0)
 
     # Learn the dimensions in latent space and reconstruct into token space
+    # TODO: fix the issue where the dimension k can le lower than permited
     k = len(names)//d
 
     best_Vr = V
@@ -352,8 +362,8 @@ def learn_dpwc(dpw: DPW, V: np.ndarray, linkage: str = 'average'):
     np.fill_diagonal(D, 0)
 
     best_score = -1.0
-    best_n = 0
-    labels = None
+    best_n = 1 if size_names > 0 else 0
+    labels = [0]*size_names
     scores = []
 
     for n in range(2, size_names-1):
@@ -373,7 +383,7 @@ def learn_dpwc(dpw: DPW, V: np.ndarray, linkage: str = 'average'):
 
 
 class DPWModel:
-    def __init__(self, corpus: Corpus, n:int=3, l:int=1, c: Cutoff = Cutoff.pareto80, latent:bool=False, k:int=1):
+    def __init__(self, corpus: Corpus, n:int=3, l:int=0, c: Cutoff = Cutoff.pareto80, latent:bool=False, k:int=1):
         self.corpus = corpus
         self.n = n
         self.l = l
@@ -389,25 +399,28 @@ class DPWModel:
     def _fit(self, term:str):
         dpw = self[term]
         if self.latent:
-            _, Vr = latent_analysis(dpw, self, d = self.k)
-            self.profiles[t] = nmf_optimization(dpw, Vr)
+            if dpw is None:
+                self.profiles[term] = None
+            else:
+                _, Vr = latent_analysis(dpw, self, d = self.k)
+                self.profiles[term] = nmf_optimization(dpw, Vr)
 
     def fit(self, terms:List[str]):
         for t in terms:
             # check if the term already exists in the cache
             if t not in self.profiles:
                 self._fit(t)
-                #dpw = self[t]
-                #if self.latent:
-                #    _, Vr = latent_analysis(dpw, self, d = self.k)
-                #    self.profiles[t] = nmf_optimization(dpw, Vr)
 
     def similarity(self, w0:str, w1:str):
         if w0 not in self.profiles:
             self._fit(w0)
         if w1 not in self.profiles:
             self._fit(w1)
-        return self.profiles[w0].similarity(self.profiles[w1])
+        
+        if self.profiles[w0] is None or  self.profiles[w1] is None:
+            return 0.0
+        else:
+            return self.profiles[w0].similarity(self.profiles[w1])
     
     def predict(self, w0:str, w1:str):
         return self.similarity(w0, w1)
@@ -449,25 +462,39 @@ class DPWModel:
 
 
 class DPWCModel:
-
     def __init__(self, corpus: Corpus, n: int = 3, l: int = 1, c: Cutoff = Cutoff.pareto80, latent=False, k:int=1):
         self.latent = latent
         self.profiles = {}
         self.dpws = DPWModel(corpus, n, l, c, False, k)
 
+    def _fit(self, term:str):
+        dpw = self.dpws[term]
+        if dpw is not None:
+            # TODO: Separate the latent analysis from the creation of the matrix for clustering
+            V, Vr = latent_analysis(dpw, self.dpws, d = self.dpws.k)
+            if self.latent:
+                self.profiles[term] = learn_dpwc(dpw, Vr)
+            else:
+                self.profiles[term] = learn_dpwc(dpw, V)
+        else:
+            self.profiles[term] = None
+
     def fit(self, terms: List[str]):
         for t in terms:
             # check if the term already exists in the cache
             if t not in self.profiles:
-                dpw = self.dpws[t]
-                V, Vr = latent_analysis(dpw, self.dpws, d = self.dpws.k)
-                if self.latent:
-                    self.profiles[t] = learn_dpwc(dpw, Vr)
-                else:
-                    self.profiles[t] = learn_dpwc(dpw, V)
-    
+                self._fit(t)
+
     def similarity(self, w0:str, w1:str):
-        return self.profiles[w0].similarity(self.profiles[w1])
+        if w0 not in self.profiles:
+            self._fit(w0)
+        if w1 not in self.profiles:
+            self._fit(w1)
+        
+        if self.profiles[w0] is None or  self.profiles[w1] is None:
+            return 0.0
+        else:
+            return self.profiles[w0].similarity(self.profiles[w1])
     
     def predict(self, w0:str, w1:str):
         return self.similarity(w0, w1)
