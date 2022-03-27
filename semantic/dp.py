@@ -120,18 +120,19 @@ def extract_neighborhood(target_word: str, corpus:List[str], n: int, stemmer, st
 
 
 def dpw_similarity(n_a: dict, n_b: dict) -> float:
-    features_a = list(n_a.keys())
-    features_b = list(n_b.keys())
-    features = list(set(features_a + features_b))
+    features_a = set(n_a.keys())
+    features_b = set(n_b.keys())
+    features = features_a.union(features_b) #list(set(features_a + features_b))
     vector_a = np.zeros(len(features))
     vector_b = np.zeros(len(features))
-    for i in range(len(features)):
-        f = features[i]
+    i = 0
+    for f in features:
         if f in n_a:
             vector_a[i] = n_a[f]
 
         if f in n_b:
             vector_b[i] = (n_b[f])
+        i += 1
 
     norm_a = np.linalg.norm(vector_a)
     norm_b = np.linalg.norm(vector_b)
