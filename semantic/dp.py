@@ -74,7 +74,7 @@ def sentences_to_tokens(s:str, stem_target_word:str, stemmer, stop_words, l:int)
     for w in temp_tokens:
         ws = stemmer.stem(w.lower())
         if ws is stem_target_word or ws not in stop_words and w.isalpha() and len(w) > l:
-            filtered_tokens.append(ws)
+            filtered_tokens.append(w)
     return filtered_tokens
 
 
@@ -96,8 +96,8 @@ def extract_neighborhood(target_word: str, corpus:List[str], n: int, stemmer, st
     # Search for target word
     neighborhood = {}
     for i in range(len(tokens)):
-        #st = stemmer.stem(tokens[i])
-        st = tokens[i]
+        st = stemmer.stem(tokens[i])
+        #st = tokens[i]
         if st == stem_target_word:
             start = max(0, i-n)
             stop = min(len(tokens), i+n+1)
@@ -119,34 +119,27 @@ def extract_neighborhood(target_word: str, corpus:List[str], n: int, stemmer, st
     return neighborhood
 
 
-#TODO: improve performance
 def dpw_similarity(n_a: dict, n_b: dict) -> float:
     features_a = list(n_a.keys())
     features_b = list(n_b.keys())
     features = list(set(features_a + features_b))
-    vector_a = []
-    vector_b = []
-    for f in features:
+    vector_a = np.zeros(len(features))
+    vector_b = np.zeros(len(features))
+    for i in range(len(features)):
+        f = features[i]
         if f in n_a:
-            vector_a.append(n_a[f])
-        else:
-            vector_a.append(0.0)
+            vector_a[i] = n_a[f]
 
         if f in n_b:
-            vector_b.append(n_b[f])
-        else:
-            vector_b.append(0.0)
+            vector_b[i] = (n_b[f])
 
-    a = np.array(vector_a)
-    b = np.array(vector_b)
-
-    norm_a = np.linalg.norm(a)
-    norm_b = np.linalg.norm(b)
+    norm_a = np.linalg.norm(vector_a)
+    norm_b = np.linalg.norm(vector_b)
 
     if norm_a == 0 or norm_b == 0:
         return 0.0
     else:
-        return np.dot(a, b)/(norm_a*norm_b)
+        return np.dot(vector_a, vector_b)/(norm_a*norm_b)
 
 
 class DPW:
@@ -298,7 +291,7 @@ def rank(array, reverse=False):
     return [sorted(array, reverse=reverse).index(x) for x in array]
 
 
-def latent_analysis(dpw: DPW, dpwm: 'DPWModel', d: int=1, seeds:List[int]=[19, 23, 29]):
+def co_occurrence_matrix(dpw: DPW, dpwm: 'DPWModel'):
     # pre-load all neighboors and remove neighborhood with weak profiles
     names = dpw.get_names()
     for s, w in names:
@@ -306,7 +299,7 @@ def latent_analysis(dpw: DPW, dpwm: 'DPWModel', d: int=1, seeds:List[int]=[19, 2
         if temp_dpw is None:
             dpw.neighborhood.pop(s, None)
             dpw.names.pop(s, None)
-
+    
     # reload names from valid profiles only
     names = dpw.get_names()
     size_names = len(names)
@@ -322,33 +315,44 @@ def latent_analysis(dpw: DPW, dpwm: 'DPWModel', d: int=1, seeds:List[int]=[19, 2
             value = max(dpw_i[names[j][0]], dpw_j[names[i][0]])
             V[i, j] = value
             V[j, i] = value
+    
+    np.fill_diagonal(V, 1.0)
 
-    #np.fill_diagonal(V, 1.0)
+    return V
+
+
+def latent_analysis(V:np.ndarray, d: int=1, seeds:List[int]=[19, 23, 29]):
+    # remove the diagonal (learned by the latent features)
+    np.fill_diagonal(V, 0)
 
     # Learn the dimensions in latent space and reconstruct into token space
     # TODO: fix the issue where the dimension k can le lower than permited
-    k = len(names)//d
+    k = max(len(V)//d, 1)
 
-    best_Vr = V
-    best_cost = float('inf')
-    for s in seeds:
-        Vr, _, _, cost = nmf.nmf_mu_kl(V, k, seed=s)
-        if cost < best_cost:
-            best_Vr = Vr
-            best_cost = cost
+    # TODO: Add joblib here, check
+    nmf_results = Parallel(n_jobs=-1)(delayed(nmf.nmf_mu_kl)(V, k, 100, 0.1, s) for s in seeds)
+    nmf_results.sort(key=lambda x:x[3])
+    Vr = nmf_results[0][0]
+
+    #best_Vr = V
+    #best_cost = float('inf')
+    #for s in seeds:
+    #    Vr, _, _, cost = nmf.nmf_mu_kl(V, k, l=.1, seed=s)
+    #    if cost < best_cost:
+    #        best_Vr = Vr
+    #        best_cost = cost
 
     # Recreate the simmetric matrix
-    for i in range(0, size_names-1):
-        for j in range(i+1, size_names):
-            value = max(best_Vr[i, j], best_Vr[j, i])
-            best_Vr[i, j] = value
-            best_Vr[j, i] = value
+    for i in range(0, len(V)-1):
+        for j in range(i+1, len(V)):
+            value = max(Vr[i, j], Vr[j, i])
+            Vr[i, j] = value
+            Vr[j, i] = value
 
     # normalize the similarity matrix
-    best_Vr = np.clip(best_Vr, 0, 1)
-    #np.fill_diagonal(best_Vr, 1)
-
-    return V, best_Vr
+    Vr = np.clip(Vr, 0, 1)
+    
+    return Vr
 
 
 def learn_dpwc(dpw: DPW, V: np.ndarray, linkage: str = 'average'):
@@ -402,7 +406,8 @@ class DPWModel:
             if dpw is None:
                 self.profiles[term] = None
             else:
-                _, Vr = latent_analysis(dpw, self, d = self.k)
+                V = co_occurrence_matrix(dpw, self)
+                Vr = latent_analysis(V, d = self.k)
                 self.profiles[term] = nmf_optimization(dpw, Vr)
 
     def fit(self, terms:List[str]):
@@ -471,11 +476,11 @@ class DPWCModel:
         dpw = self.dpws[term]
         if dpw is not None:
             # TODO: Separate the latent analysis from the creation of the matrix for clustering
-            V, Vr = latent_analysis(dpw, self.dpws, d = self.dpws.k)
+            #V, Vr = latent_analysis(dpw, self.dpws, d = self.dpws.k)
+            V = co_occurrence_matrix(dpw, self.dpws)
             if self.latent:
-                self.profiles[term] = learn_dpwc(dpw, Vr)
-            else:
-                self.profiles[term] = learn_dpwc(dpw, V)
+                V = latent_analysis(V, d = self.dpws.k)
+            self.profiles[term] = learn_dpwc(dpw, V)
         else:
             self.profiles[term] = None
 
