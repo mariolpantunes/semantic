@@ -204,18 +204,23 @@ class DPWC:
         self.names = names
         self.neighborhood = neighborhood
 
+    #TODO: improve the performance of this method
     def similarity(self, dpwc: 'DPWC') -> float:
         if self.word == dpwc.word:
             return 1.0
         else:
-            similarities = []
+            #similarities = []
+            best_similarity = 0.0
             for n_a, a_a in self.neighborhood:
                 for n_b, a_b in dpwc.neighborhood:
                     similarity = dpw_similarity(n_a, n_b)
                     similarity_with_affinity = similarity*((a_a + a_b)/2.0)
-                    similarities.append(similarity_with_affinity)
+                    #similarities.append(similarity_with_affinity)
+                    if similarity_with_affinity > best_similarity:
+                        best_similarity = similarity_with_affinity
 
-            return max(similarities)
+            #return max(similarities)
+            return best_similarity
 
     def __str__(self):
         names = pprint.pformat(self.names)
