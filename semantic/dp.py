@@ -205,6 +205,7 @@ class DPWC:
         self.names = names
         self.neighborhood = neighborhood
 
+    #TODO: improve the performance of this method
     def similarity(self, dpwc: 'DPWC') -> float:
         if self.word == dpwc.word:
             return 1.0
