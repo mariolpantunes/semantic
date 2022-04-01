@@ -72,13 +72,14 @@ def sentences_to_tokens(s:str, stem_target_word:str, stemmer, stop_words, l:int)
     temp_tokens = nltk.word_tokenize(s)
     filtered_tokens = []
     for w in temp_tokens:
-        ws = stemmer.stem(w.lower())
-        if ws is stem_target_word or ws not in stop_words and w.isalpha() and len(w) > l:
-            filtered_tokens.append(w)
+        wl = w.lower()
+        ws = stemmer.stem(wl)
+        if ws is stem_target_word or (wl not in stop_words and wl.isalpha() and len(wl) >= l):
+            filtered_tokens.append(wl)
     return filtered_tokens
 
 
-def extract_neighborhood(target_word: str, corpus:List[str], n: int, stemmer, stop_words, l:int=1, c: Cutoff = Cutoff.pareto80) -> Dict:
+def extract_neighborhood(target_word: str, corpus:List[str], n: int, stemmer, stop_words, l:int=3, c: Cutoff = Cutoff.pareto80) -> Dict:
     switcher = {
         Cutoff.knee: cutoff_knee,
         Cutoff.pareto20: cutoff_pareto20,
@@ -120,18 +121,19 @@ def extract_neighborhood(target_word: str, corpus:List[str], n: int, stemmer, st
 
 
 def dpw_similarity(n_a: dict, n_b: dict) -> float:
-    features_a = list(n_a.keys())
-    features_b = list(n_b.keys())
-    features = list(set(features_a + features_b))
+    features_a = set(n_a.keys())
+    features_b = set(n_b.keys())
+    features = features_a.union(features_b)
     vector_a = np.zeros(len(features))
     vector_b = np.zeros(len(features))
-    for i in range(len(features)):
-        f = features[i]
+    i = 0
+    for f in features:
         if f in n_a:
             vector_a[i] = n_a[f]
 
         if f in n_b:
             vector_b[i] = (n_b[f])
+        i += 1
 
     norm_a = np.linalg.norm(vector_a)
     norm_b = np.linalg.norm(vector_b)
@@ -207,14 +209,15 @@ class DPWC:
         if self.word == dpwc.word:
             return 1.0
         else:
-            similarities = []
+            best_similarity = 0.0
             for n_a, a_a in self.neighborhood:
                 for n_b, a_b in dpwc.neighborhood:
                     similarity = dpw_similarity(n_a, n_b)
                     similarity_with_affinity = similarity*((a_a + a_b)/2.0)
-                    similarities.append(similarity_with_affinity)
+                    if similarity_with_affinity > best_similarity:
+                        best_similarity = similarity_with_affinity
 
-            return max(similarities)
+            return best_similarity
 
     def __str__(self):
         names = pprint.pformat(self.names)
@@ -321,26 +324,16 @@ def co_occurrence_matrix(dpw: DPW, dpwm: 'DPWModel'):
     return V
 
 
-def latent_analysis(V:np.ndarray, d: int=1, seeds:List[int]=[19, 23, 29]):
+def latent_analysis(V:np.ndarray, d: int=1, seeds:List[int]=[19, 23, 29, 31, 37, 41, 43]):
     # remove the diagonal (learned by the latent features)
     np.fill_diagonal(V, 0)
 
     # Learn the dimensions in latent space and reconstruct into token space
-    # TODO: fix the issue where the dimension k can le lower than permited
     k = max(len(V)//d, 1)
 
-    # TODO: Add joblib here, check
     nmf_results = Parallel(n_jobs=-1)(delayed(nmf.nmf_mu_kl)(V, k, 100, 0.1, s) for s in seeds)
     nmf_results.sort(key=lambda x:x[3])
     Vr = nmf_results[0][0]
-
-    #best_Vr = V
-    #best_cost = float('inf')
-    #for s in seeds:
-    #    Vr, _, _, cost = nmf.nmf_mu_kl(V, k, l=.1, seed=s)
-    #    if cost < best_cost:
-    #        best_Vr = Vr
-    #        best_cost = cost
 
     # Recreate the simmetric matrix
     for i in range(0, len(V)-1):
@@ -355,7 +348,7 @@ def latent_analysis(V:np.ndarray, d: int=1, seeds:List[int]=[19, 23, 29]):
     return Vr
 
 
-def learn_dpwc(dpw: DPW, V: np.ndarray, linkage: str = 'average'):
+def learn_dpwc(dpw: DPW, V: np.ndarray, kl:int=0, linkage: str = 'average'):
     # load names and the right index
     names = dpw.get_names()
     idx_word = names.index(dpw.word)
@@ -365,16 +358,16 @@ def learn_dpwc(dpw: DPW, V: np.ndarray, linkage: str = 'average'):
     D = 1.0 - V
     np.fill_diagonal(D, 0)
 
-    best_score = -1.0
+    best_score = -1
     best_n = 1 if size_names > 0 else 0
     labels = [0]*size_names
-    scores = []
+    limit = (size_names-1) if kl <= 0 else kl
+    limit = min(size_names-1, limit)
 
-    for n in range(2, size_names-1):
+    for n in range(2, limit):
         agg = AgglomerativeClustering(n_clusters=n, affinity='precomputed', linkage = linkage)
         cluster_labels = agg.fit_predict(D)
         score = silhouette_score(D, cluster_labels, metric='precomputed')
-        scores.append(score)
         if score > best_score:
             best_n = n
             best_score = score
@@ -387,7 +380,7 @@ def learn_dpwc(dpw: DPW, V: np.ndarray, linkage: str = 'average'):
 
 
 class DPWModel:
-    def __init__(self, corpus: Corpus, n:int=3, l:int=0, c: Cutoff = Cutoff.pareto80, latent:bool=False, k:int=1):
+    def __init__(self, corpus: Corpus, n:int=3, l:int=3,  c: Cutoff = Cutoff.pareto20, latent:bool=False, k:int=1):
         self.corpus = corpus
         self.n = n
         self.l = l
@@ -401,53 +394,58 @@ class DPWModel:
         self.stemmer = nltk.stem.PorterStemmer()
 
     def _fit(self, term:str):
+        st = self.stemmer.stem(term)
         dpw = self[term]
         if self.latent:
             if dpw is None:
-                self.profiles[term] = None
+                self.profiles[st] = None
             else:
                 V = co_occurrence_matrix(dpw, self)
                 Vr = latent_analysis(V, d = self.k)
-                self.profiles[term] = nmf_optimization(dpw, Vr)
+                self.profiles[st] = nmf_optimization(dpw, Vr)
 
     def fit(self, terms:List[str]):
         for t in terms:
             # check if the term already exists in the cache
-            if t not in self.profiles:
+            st = self.stemmer.stem(t)
+            if st not in self.profiles:
                 self._fit(t)
 
     def similarity(self, w0:str, w1:str):
-        if w0 not in self.profiles:
-            self._fit(w0)
-        if w1 not in self.profiles:
-            self._fit(w1)
+        self.fit([w0, w1])
         
-        if self.profiles[w0] is None or  self.profiles[w1] is None:
+        sw0 = self.stemmer.stem(w0)
+        sw1 = self.stemmer.stem(w1)
+
+        if self.profiles[sw0] is None or  self.profiles[sw1] is None:
             return 0.0
         else:
-            return self.profiles[w0].similarity(self.profiles[w1])
+            return self.profiles[sw0].similarity(self.profiles[sw1])
     
     def predict(self, w0:str, w1:str):
         return self.similarity(w0, w1)
     
     def __getitem__(self, key):
+        logger.debug(f'DPW[{key}]')
+        st = self.stemmer.stem(key)
+
         # select the correct dictionary
         if self.latent:
             d = self.cache
         else:
             d = self.profiles
 
-        if key not in d:
+        if st not in d:
             # get the corpus
             corpus = self.corpus.get(key)
             # create the original dpw
             n = extract_neighborhood(key, corpus, self.n, self.stemmer, self.stop_words, c=self.c, l=self.l)
             if len(n) == 0:
-                d[key] = None
+                d[st] = None
             else:
-                d[key] = DPW(key, n)
+                d[st] = DPW(key, n)
         
-        return d[key]
+        return d[st]
 
     def __len__(self):
         if self.latent:
@@ -467,39 +465,41 @@ class DPWModel:
 
 
 class DPWCModel:
-    def __init__(self, corpus: Corpus, n: int = 3, l: int = 1, c: Cutoff = Cutoff.pareto80, latent=False, k:int=1):
+    def __init__(self, corpus: Corpus, n: int = 3, l: int = 3, kl:int=0, c: Cutoff = Cutoff.pareto20, latent=False, k:int=1):
         self.latent = latent
+        self.kl = kl
         self.profiles = {}
-        self.dpws = DPWModel(corpus, n, l, c, False, k)
+        self.dpws = DPWModel(corpus, n=n, l=l, c=c, latent=False, k=k)
+        self.stemmer = nltk.stem.PorterStemmer()
 
     def _fit(self, term:str):
+        st = self.stemmer.stem(term)
         dpw = self.dpws[term]
         if dpw is not None:
-            # TODO: Separate the latent analysis from the creation of the matrix for clustering
-            #V, Vr = latent_analysis(dpw, self.dpws, d = self.dpws.k)
             V = co_occurrence_matrix(dpw, self.dpws)
             if self.latent:
                 V = latent_analysis(V, d = self.dpws.k)
-            self.profiles[term] = learn_dpwc(dpw, V)
+            self.profiles[st] = learn_dpwc(dpw, V, kl=self.kl)
         else:
-            self.profiles[term] = None
+            self.profiles[st] = None
 
     def fit(self, terms: List[str]):
         for t in terms:
             # check if the term already exists in the cache
-            if t not in self.profiles:
+            st = self.stemmer.stem(t)
+            if st not in self.profiles:
                 self._fit(t)
 
     def similarity(self, w0:str, w1:str):
-        if w0 not in self.profiles:
-            self._fit(w0)
-        if w1 not in self.profiles:
-            self._fit(w1)
+        self.fit([w0, w1])
         
-        if self.profiles[w0] is None or  self.profiles[w1] is None:
+        sw0 = self.stemmer.stem(w0)
+        sw1 = self.stemmer.stem(w1)
+        
+        if self.profiles[sw0] is None or  self.profiles[sw1] is None:
             return 0.0
         else:
-            return self.profiles[w0].similarity(self.profiles[w1])
+            return self.profiles[sw0].similarity(self.profiles[sw1])
     
     def predict(self, w0:str, w1:str):
         return self.similarity(w0, w1)

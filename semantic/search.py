@@ -5,9 +5,13 @@ __version__ = '0.1'
 __email__ = 'mariolpantunes@gmail.com'
 __status__ = 'Development'
 
+
 import os
 import logging
 import requests
+
+
+#import shutil
 
 
 logger = logging.getLogger(__name__)
@@ -47,13 +51,15 @@ class CWS:
 
 
 class CacheSearch:
-    def __init__(self, ws, path):
+    def __init__(self, ws: CWS, path:str, limit:int=0):
         self.ws = ws
         self.path = path
+        self.limit = limit
     
     def search(self, query):
         filename = f'{self.path}/{query}.csv'
         snippets = []
+        logger.debug(f'Trying to get {filename}')
         if os.path.exists(filename):
             logger.debug('Cache file %s', filename)
             with open(filename, 'rt', newline='', encoding='utf-8') as file:
@@ -65,4 +71,8 @@ class CacheSearch:
             with open(filename, 'wt', newline='', encoding='utf-8') as file:
                 file.writelines(snippets)
             logger.debug('Snippets stored in %s', filename)
-        return snippets 
+
+        if self.limit>0:
+            return snippets[:self.limit]
+        else:
+            return snippets 

@@ -23,16 +23,15 @@ class Corpus(ABC):
 class DummyCorpus(Corpus):
     def __init__(self, dataset: Dict[str, List[str]]):
         self.dataset = dataset
-    
+
     def get(self, term: str):
         return self.dataset[term]
 
 
 class WebCorpus(Corpus):
-    
-    def __init__(self, key:str, path:str):
+    def __init__(self, key: str, path: str, limit: int = 0):
         cws = search.CWS(key)
-        self.cs = search.CacheSearch(cws, path)
+        self.cs = search.CacheSearch(cws, path, limit)
 
     def get(self, term: str):
         return self.cs.search(term)

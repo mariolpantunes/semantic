@@ -52,7 +52,7 @@ class TestDP(unittest.TestCase):
         model = dp.DPWModel(self.corpus, l=0, c=dp.Cutoff.none, latent=True)
         model.fit(terms)
         result = model.similarity('banana', 'apple')
-        desired = 0.27446470837548753
+        desired = 0.31543255181329394
         self.assertAlmostEqual(result, desired, 2)
     
     def test_dp_03(self):
@@ -78,7 +78,7 @@ class TestDP(unittest.TestCase):
         model = dp.DPWCModel(self.corpus, l=0, c=dp.Cutoff.none, latent=True)
         model.fit(terms)
         result = model.similarity('banana', 'apple')
-        desired = 0.1805697510774786
+        desired = 0.1934145047219262
         self.assertAlmostEqual(result, desired, 2)
 
 if __name__ == '__main__':
