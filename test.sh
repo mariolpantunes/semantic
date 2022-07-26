@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-datasets=( en-iot-30.csv )
+datasets=( en-mc-30.csv en-iot-30.csv )
 cutoff=( pareto20 pareto80 ) 
 neighborhoods=( 3 5 7 )
 nmf=( 1 2 3 4 5 )

@@ -1,5 +1,7 @@
 # Project
-dataset
+*.pdf
+out
+corpus
 config.py
 *.csv
 
