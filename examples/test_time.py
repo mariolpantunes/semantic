@@ -87,14 +87,14 @@ def main(args):
 
     for n in tqdm.tqdm(neighborhoods):
         # Training time
-        ti, std, model = timeit.timeit(1, time_training, terms, corpus_obj, n)
+        ti, std, model = timeit.timeit(args.n, time_training, terms, corpus_obj, n)
         training_time.append((n,ti,std))
         # Store model and get size
         with open(f'model_{n}.pkl', 'wb') as outp:
             pickle.dump(model, outp, pickle.HIGHEST_PROTOCOL)
         model_size.append((n, get_file_size(f'model_{n}.pkl')))
         # Inference time
-        ti, std, _ = timeit.timeit(1, time_inference, model, lines)
+        ti, std, _ = timeit.timeit(args.n, time_inference, model, lines)
         inference_time.append((n,ti,std))
 
     # Print the results
@@ -114,5 +114,6 @@ def main(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Semantic playground')
     parser.add_argument('-d', type=str, required=True, help='dataset file (csv)')
+    parser.add_argument('-n', type=int, help='number of repetition (for timeit)', default=5)
     args = parser.parse_args()
     main(args)
