@@ -1,4 +1,5 @@
 # Project
+*.pkl
 *.pdf
 out
 corpus
