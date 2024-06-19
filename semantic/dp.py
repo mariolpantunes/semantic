@@ -14,8 +14,8 @@ import logging
 import operator
 import functools
 import numpy as np
-import nmf.nmf as nmf
-import knee.lmethod as lmethod
+import pynnmf.pynnmf as pynnmf
+import kneeliverse.lmethod as lmethod
 from sklearn.metrics import silhouette_score
 from sklearn.cluster import AgglomerativeClustering
 
@@ -332,7 +332,7 @@ def latent_analysis(V:np.ndarray, d: int=1, seeds:List[int]=[19, 23, 29, 31, 37,
     # Learn the dimensions in latent space and reconstruct into token space
     k = max(len(V)//d, 1)
 
-    nmf_results = Parallel(n_jobs=-1)(delayed(nmf.nmf_mu_kl)(V, k, 100, 0.1, s) for s in seeds)
+    nmf_results = Parallel(n_jobs=-1)(delayed(pynnmf.nmf_mu_kl)(V, k, 100, 0.1, s) for s in seeds)
     nmf_results.sort(key=lambda x:x[3])
     Vr = nmf_results[0][0]
 
@@ -366,7 +366,7 @@ def learn_dpwc(dpw: DPW, V: np.ndarray, kl:int=0, linkage: str = 'average'):
     limit = min(size_names-1, limit)
 
     for n in range(2, limit):
-        agg = AgglomerativeClustering(n_clusters=n, affinity='precomputed', linkage = linkage)
+        agg = AgglomerativeClustering(n_clusters=n, metric='precomputed', linkage = linkage)
         cluster_labels = agg.fit_predict(D)
         score = silhouette_score(D, cluster_labels, metric='precomputed')
         if score > best_score:

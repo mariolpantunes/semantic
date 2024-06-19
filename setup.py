@@ -26,6 +26,6 @@ setup(
     url='https://github.com/mariolpantunes/semantic',
     packages=find_packages(),
     cmdclass={'download_nltk': DownloadNLTK},
-    install_requires=['nltk>=3.7', 'numpy>=1.22.3', 'requests>=2.27.1', 'scikit-learn>=1.0.2', 'joblib>=1.1.0', 'pyNNMF>=0.1.3', 'kneeliverse>=1.0'],
-    setup_requires=['nltk>=3.7']
+    install_requires=['nltk>=3.8.1', 'numpy>=1.26.4', 'requests>=2.32.3', 'scikit-learn>=1.5.0', 'joblib>=1.4.2', 'pyNNMF>=0.1.3', 'kneeliverse>=1.0'],
+    setup_requires=['nltk>=3.8.1']
 )
