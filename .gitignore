@@ -5,6 +5,7 @@ out
 corpus
 config.py
 *.csv
+resources
 
 # VSCode
 .vscode

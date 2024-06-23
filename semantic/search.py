@@ -11,12 +11,10 @@ import logging
 import requests
 
 
-#import shutil
-
-
 logger = logging.getLogger(__name__)
 
 
+#TODO change to SearxNG instance (maybe instantiate one on IT)
 class CWS:
     def __init__(self, key:str):
         self.key = key

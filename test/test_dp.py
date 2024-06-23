@@ -6,9 +6,14 @@ __email__ = 'mariolpantunes@gmail.com'
 __status__ = 'Development'
 
 
+import nltk
+import logging
 import unittest
-import semantic.corpus as corpus
 import semantic.dp as dp
+import semantic.corpus as corpus
+
+logging.basicConfig(level=logging.INFO, format='%(message)s')
+logger = logging.getLogger(__name__)
 
 
 class TestDP(unittest.TestCase):
@@ -57,29 +62,58 @@ class TestDP(unittest.TestCase):
     
     def test_dp_03(self):
         terms = ['banana', 'apple', 'peach']
+        model = dp.DPWModel(self.corpus, l=0, c=dp.Cutoff.none, latent=True)
+        model.fit(terms)
+        result = model.vocabulary()
+        self.assertEqual(result, terms)
+
+    def test_dp_04(self):
+        terms = ['banana', 'apple', 'peach']
+        model = dp.DPWModel(self.corpus, l=0, c=dp.Cutoff.none, latent=True)
+        model.fit(terms)
+        result = model.similarity('banana', 'mango')
+        desired = 0.10514418393776466
+        self.assertAlmostEqual(result, desired, 2)
+    
+    def test_dp_05(self):
+        terms = ['banana', 'apple', 'peach']
         model = dp.DPWCModel(self.corpus, l=0, c=dp.Cutoff.none, latent=False)
         model.fit(terms)
-        #print(model)
         result = model.similarity('banana', 'banana')
         desired = 1.0
         self.assertAlmostEqual(result, desired, 2)
 
-    def test_dp_04(self):
+    def test_dp_06(self):
         terms = ['banana', 'apple', 'peach']
         model = dp.DPWCModel(self.corpus, l=0, c=dp.Cutoff.none, latent=False)
         model.fit(terms)
-        #print(model)
         result = model.similarity('banana', 'apple')
         desired = 0.23643410852713176
         self.assertAlmostEqual(result, desired, 2)
     
-    def test_dp_05(self):
+    def test_dp_07(self):
         terms = ['banana', 'apple', 'peach']
         model = dp.DPWCModel(self.corpus, l=0, c=dp.Cutoff.none, latent=True)
         model.fit(terms)
         result = model.similarity('banana', 'apple')
         desired = 0.1934145047219262
         self.assertAlmostEqual(result, desired, 2)
+    
+    def test_dp_08(self):
+        terms = ['banana', 'apple', 'peach']
+        model = dp.DPWCModel(self.corpus, l=0, c=dp.Cutoff.none, latent=True)
+        model.fit(terms)
+        result = model.vocabulary()
+        self.assertEqual(result, terms)
+    
+    def test_dp_09(self):
+        terms = ['banana', 'apple', 'peach']
+        model = dp.DPWCModel(self.corpus, l=0, c=dp.Cutoff.none, latent=True)
+        model.fit(terms)
+        result = model.similarity('banana', 'mango')
+        desired = 0.0644715015739754
+        self.assertAlmostEqual(result, desired, 2)
+
 
 if __name__ == '__main__':
     unittest.main()

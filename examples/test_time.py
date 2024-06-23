@@ -20,7 +20,7 @@ import semantic.dp as dp
 import semantic.corpus as corpus
 
 
-import exectime.timeit as timeit
+import exectimeit.timeit as timeit
 
 
 logging.basicConfig(level=logging.INFO, format='%(message)s')

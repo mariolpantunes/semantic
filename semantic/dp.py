@@ -6,11 +6,13 @@ __email__ = 'mariolpantunes@gmail.com'
 __status__ = 'Development'
 
 
-import enum
 import copy
+import enum
+import math
 import nltk
 import pprint
 import logging
+import tempfile
 import operator
 import functools
 import numpy as np
@@ -73,7 +75,7 @@ def sentences_to_tokens(s:str, stem_target_word:str, stemmer, stop_words, l:int)
     filtered_tokens = []
     for w in temp_tokens:
         wl = w.lower()
-        ws = stemmer.stem(wl)
+        ws = stemmer(wl)
         if ws is stem_target_word or (wl not in stop_words and wl.isalpha() and len(wl) >= l):
             filtered_tokens.append(wl)
     return filtered_tokens
@@ -88,7 +90,7 @@ def extract_neighborhood(target_word: str, corpus:List[str], n: int, stemmer, st
     }
     
     #snippets = ws.search(target_word)
-    stem_target_word = stemmer.stem(target_word.lower())
+    stem_target_word = stemmer(target_word.lower())
     
     # Text Mining Pipeline
     tokens = Parallel(n_jobs=-1)(delayed(sentences_to_tokens)(s, stem_target_word, stemmer, stop_words, l) for s in corpus)
@@ -97,7 +99,7 @@ def extract_neighborhood(target_word: str, corpus:List[str], n: int, stemmer, st
     # Search for target word
     neighborhood = {}
     for i in range(len(tokens)):
-        st = stemmer.stem(tokens[i])
+        st = stemmer(tokens[i])
         #st = tokens[i]
         if st == stem_target_word:
             start = max(0, i-n)
@@ -121,9 +123,7 @@ def extract_neighborhood(target_word: str, corpus:List[str], n: int, stemmer, st
 
 
 def dpw_similarity(n_a: dict, n_b: dict) -> float:
-    features_a = set(n_a.keys())
-    features_b = set(n_b.keys())
-    features = features_a.union(features_b)
+    features = set(n_a.keys()) | set(n_b.keys())
     vector_a = np.zeros(len(features))
     vector_b = np.zeros(len(features))
     i = 0
@@ -132,28 +132,29 @@ def dpw_similarity(n_a: dict, n_b: dict) -> float:
             vector_a[i] = n_a[f]
 
         if f in n_b:
-            vector_b[i] = (n_b[f])
+            vector_b[i] = n_b[f]
         i += 1
 
     norm_a = np.linalg.norm(vector_a)
     norm_b = np.linalg.norm(vector_b)
 
-    if norm_a == 0 or norm_b == 0:
-        return 0.0
-    else:
-        return np.dot(vector_a, vector_b)/(norm_a*norm_b)
+    return np.dot(vector_a, vector_b)/max((norm_a*norm_b), math.ulp(1.0))
 
 
 class DPW:
+    stemmer = nltk.stem.snowball.SnowballStemmer(language='english') #nltk.stem.PorterStemmer()
+
+    def stem(term:str)->str:
+        return DPW.stemmer.stem(term)
+
     def __init__(self, word: str, neighborhood: list):
-        ps = nltk.stem.PorterStemmer()
-        self.word = (ps.stem(word), word)
+        self.word = (DPW.stem(word), word)
         # reduce neighborhood using the stem transformation
         self.neighborhood = {}
         self.names = {}
         t = max_value = 0.0
         for k, v in neighborhood:
-            stem = ps.stem(k)
+            stem = DPW.stem(k)
             if stem not in self.neighborhood:
                 self.neighborhood[stem] = 0
                 self.names[stem] = k
@@ -163,7 +164,7 @@ class DPW:
             t += v
             if v > max_value:
                 max_value = v
-
+        
         # add itself if not in the profile
         if self.word[0] not in self.neighborhood:
             self.neighborhood[self.word[0]] = max_value
@@ -205,20 +206,20 @@ class DPWC:
         self.names = names
         self.neighborhood = neighborhood
 
-    #TODO: improve the performance of this method
+    def _similarity(n_a, a_a, n_b, a_b):
+        return dpw_similarity(n_a, n_b)*((a_a + a_b)/2.0)
+
     def similarity(self, dpwc: 'DPWC') -> float:
         if self.word == dpwc.word:
             return 1.0
         else:
-            best_similarity = 0.0
+            # Step up with joblib
+            #ctx_similarity = Parallel(n_jobs=2)(delayed(DPWC._similarity)(n_a, a_a, n_b, a_b) for n_a, a_a in self.neighborhood for n_b, a_b in dpwc.neighborhood)
+            ctx_similarity = []
             for n_a, a_a in self.neighborhood:
                 for n_b, a_b in dpwc.neighborhood:
-                    similarity = dpw_similarity(n_a, n_b)
-                    similarity_with_affinity = similarity*((a_a + a_b)/2.0)
-                    if similarity_with_affinity > best_similarity:
-                        best_similarity = similarity_with_affinity
-
-            return best_similarity
+                    ctx_similarity.append(DPWC._similarity(n_a, a_a, n_b, a_b))
+            return max(ctx_similarity)
 
     def __str__(self):
         names = pprint.pformat(self.names)
@@ -299,7 +300,8 @@ def co_occurrence_matrix(dpw: DPW, dpwm: 'DPWModel'):
     # pre-load all neighboors and remove neighborhood with weak profiles
     names = dpw.get_names()
     for s, w in names:
-        temp_dpw = dpwm[w]
+        # load RAW DPW
+        temp_dpw = dpwm.get_RAW_DPW(w)
         if temp_dpw is None:
             dpw.neighborhood.pop(s, None)
             dpw.names.pop(s, None)
@@ -314,8 +316,8 @@ def co_occurrence_matrix(dpw: DPW, dpwm: 'DPWModel'):
     # Fill the matrix
     for i in range(0, size_names-1):
         for j in range(i+1, size_names):
-            dpw_i = dpwm[names[i][1]]
-            dpw_j = dpwm[names[j][1]]
+            dpw_i = dpwm.get_RAW_DPW(names[i][1])
+            dpw_j = dpwm.get_RAW_DPW(names[j][1])
             value = max(dpw_i[names[j][0]], dpw_j[names[i][0]])
             V[i, j] = value
             V[j, i] = value
@@ -381,79 +383,116 @@ def learn_dpwc(dpw: DPW, V: np.ndarray, kl:int=0, linkage: str = 'average'):
 
 
 class DPWModel:
-    def __init__(self, corpus: Corpus, n:int=3, l:int=3,  c: Cutoff = Cutoff.pareto20, latent:bool=False, k:int=1):
+    def __init__(self, corpus: Corpus, n:int=3, l:int=3,
+    c: Cutoff = Cutoff.pareto20, continuous:bool=False,
+    latent:bool=False, k:int=1):
         self.corpus = corpus
         self.n = n
         self.l = l
         self.c = c
         self.k = k
+        self.continuous = continuous
         self.latent = latent
         self.profiles = {}
         if latent:
             self.cache = {}
         self.stop_words = set(nltk.corpus.stopwords.words('english'))
-        self.stemmer = nltk.stem.PorterStemmer()
+        self.bias = 0.0
+
+    def _fit_RAW_DPW(self, term:str):
+        logger.debug(f'_fit_RAW_DPW({term})')
+        st = DPW.stem(term)
+        # load the data from the corpus
+        corpus = self.corpus.get(term)
+        # create the original dpw
+        n = extract_neighborhood(term, corpus, self.n, DPW.stem, self.stop_words, c=self.c, l=self.l)
+        return DPW(term, n)
 
     def _fit(self, term:str):
-        st = self.stemmer.stem(term)
-        dpw = self[term]
+        logger.debug(f'_fit({term})')
+        st = DPW.stem(term)
+        rawDPW = self._fit_RAW_DPW(term)
+        # store the profile in the rigth profile
         if self.latent:
-            if dpw is None:
-                self.profiles[st] = None
-            else:
-                V = co_occurrence_matrix(dpw, self)
-                Vr = latent_analysis(V, d = self.k)
-                self.profiles[st] = nmf_optimization(dpw, Vr)
+            self.cache[st] = rawDPW
+            for s, w in rawDPW.get_names():
+                if s not in self.cache:
+                    self.cache[s] = self._fit_RAW_DPW(w)
+            V = co_occurrence_matrix(rawDPW, self)
+            Vr = latent_analysis(V, d = self.k)
+            self.profiles[st] = nmf_optimization(rawDPW, Vr)
+        else:
+            self.profiles[st] = rawDPW
+        
+        # compute the bias
+        dp_len = len(self)
+        if dp_len == 1:
+            self.bias = 0.5
+        elif dp_len == 2:
+            w0, w1 = self.vocabulary()
+            self.bias = self.similarity(w0, w1)
+        else:
+            term_bias = 0.0
+            for w in self.vocabulary():
+                if w != term:
+                    term_bias += self.similarity(term, w)
+            tot_pairs = (dp_len**2-dp_len)/2
+            old_pairs = ((dp_len-1)**2-(dp_len-1))/2
+            self.bias = (self.bias*old_pairs/tot_pairs) + (term_bias/tot_pairs)
 
     def fit(self, terms:List[str]):
+        logger.debug(f'fit({terms})')
         for t in terms:
             # check if the term already exists in the cache
-            st = self.stemmer.stem(t)
+            st = DPW.stem(t)
             if st not in self.profiles:
                 self._fit(t)
 
     def similarity(self, w0:str, w1:str):
-        self.fit([w0, w1])
+        logger.debug(f'similarity({w0}, {w1})')
+        if self.continuous:
+            self.fit([w0, w1])
         
-        sw0 = self.stemmer.stem(w0)
-        sw1 = self.stemmer.stem(w1)
+        sw0 = DPW.stem(w0)
+        sw1 = DPW.stem(w1)
 
-        if self.profiles[sw0] is None or  self.profiles[sw1] is None:
-            return 0.0
+        if sw0 == sw1:
+            return 1.0
+        elif self.profiles.get(sw0,None) is None or self.profiles.get(sw1, None) is None:
+            return self.bias
         else:
             return self.profiles[sw0].similarity(self.profiles[sw1])
     
     def predict(self, w0:str, w1:str):
+        logger.debug(f'predict({w0}, {w1})')
         return self.similarity(w0, w1)
+    
+    def get_RAW_DPW(self, term:str):
+        logger.debug(f'get_RAW_DPW({term})')
+        st = DPW.stem(term)
+        return self.cache.get(st, None) if self.latent else self.profiles.get(st, None)
+    
+    def vocabulary(self):
+        logger.debug(f'vocabulary(self)')
+        rv = []
+        for dp in self.profiles:
+            if self.profiles[dp] is not None:
+                rv.append(self.profiles[dp].word[1])
+        return rv
+        #return [self.profiles[dp].word[1] for dp in self.profiles]
     
     def __getitem__(self, key):
         logger.debug(f'DPW[{key}]')
-        st = self.stemmer.stem(key)
-
-        # select the correct dictionary
-        if self.latent:
-            d = self.cache
-        else:
-            d = self.profiles
-
-        if st not in d:
-            # get the corpus
-            corpus = self.corpus.get(key)
-            # create the original dpw
-            n = extract_neighborhood(key, corpus, self.n, self.stemmer, self.stop_words, c=self.c, l=self.l)
-            if len(n) == 0:
-                d[st] = None
-            else:
-                d[st] = DPW(key, n)
-        
-        return d[st]
+        st = DPW.stem(key)
+        return self.profiles.get(st, None)
 
     def __len__(self):
-        if self.latent:
-            d = self.cache
-        else:
-            d = self.profiles
-        return len(d)
+        logger.debug(f'len(self) = {len(self.profiles)}')
+        return len(self.profiles)
+    
+    def __contains__(self, key):
+        logger.debug(f'in {key}')
+        return key in self.profiles
 
     def __str__(self):
         txt = ''
@@ -466,44 +505,93 @@ class DPWModel:
 
 
 class DPWCModel:
-    def __init__(self, corpus: Corpus, n: int = 3, l: int = 3, kl:int=0, c: Cutoff = Cutoff.pareto20, latent=False, k:int=1):
+    def __init__(self, corpus: Corpus, n: int = 3, l: int = 3, kl:int=0,
+    c: Cutoff = Cutoff.pareto20, continuous=False, latent=False, k:int=1):
         self.latent = latent
+        self.continuous = continuous
         self.kl = kl
         self.profiles = {}
         self.dpws = DPWModel(corpus, n=n, l=l, c=c, latent=False, k=k)
-        self.stemmer = nltk.stem.PorterStemmer()
+        self.bias = 0.0
 
     def _fit(self, term:str):
-        st = self.stemmer.stem(term)
+        logger.debug(f'_fit({term})')
+        st = DPW.stem(term)
+        # train the DPW
+        self.dpws._fit(term)
         dpw = self.dpws[term]
-        if dpw is not None:
-            V = co_occurrence_matrix(dpw, self.dpws)
-            if self.latent:
-                V = latent_analysis(V, d = self.dpws.k)
-            self.profiles[st] = learn_dpwc(dpw, V, kl=self.kl)
+        # train the DPW from the Neighbourhood
+        logger.debug(f'NAMES: {dpw.get_names()}')
+        for _, w in dpw.get_names():
+            logger.debug(f'NAME {w}')
+            if w not in self.dpws:
+                self.dpws._fit(w)
+        V = co_occurrence_matrix(dpw, self.dpws)
+        if self.latent:
+            V = latent_analysis(V, d = self.dpws.k)
+        self.profiles[st] = learn_dpwc(dpw, V, kl=self.kl)
+
+        # compute the bias
+        dp_len = len(self)
+        if dp_len == 1:
+            self.bias = 0.5
+        elif dp_len == 2:
+            w0, w1 = self.vocabulary()
+            self.bias = self.similarity(w0, w1)
         else:
-            self.profiles[st] = None
+            term_bias = 0.0
+            for w in self.vocabulary():
+                if w != term:
+                    term_bias += self.similarity(term, w)
+            tot_pairs = (dp_len**2-dp_len)/2
+            old_pairs = ((dp_len-1)**2-(dp_len-1))/2
+            self.bias = (self.bias*old_pairs/tot_pairs) + (term_bias/tot_pairs)
+        logger.debug(f'BIAS = {self.bias}')
 
     def fit(self, terms: List[str]):
+        logger.debug(f'fit({terms})')
         for t in terms:
             # check if the term already exists in the cache
-            st = self.stemmer.stem(t)
+            st = DPW.stem(t)
             if st not in self.profiles:
                 self._fit(t)
 
     def similarity(self, w0:str, w1:str):
-        self.fit([w0, w1])
+        logger.debug(f'similarity({w0}, {w1})')
+        if self.continuous:
+           self.fit([w0, w1])
         
-        sw0 = self.stemmer.stem(w0)
-        sw1 = self.stemmer.stem(w1)
-        
-        if self.profiles[sw0] is None or  self.profiles[sw1] is None:
-            return 0.0
+        sw0 = DPW.stem(w0)
+        sw1 = DPW.stem(w1)
+
+        if sw0 == sw1:
+            return 1.0
+        elif self.profiles.get(sw0, None) is None or self.profiles.get(sw1,None) is None:
+            return self.bias
         else:
             return self.profiles[sw0].similarity(self.profiles[sw1])
     
     def predict(self, w0:str, w1:str):
+        logger.debug(f'predict({w0}, {w1})')
         return self.similarity(w0, w1)
+    
+    def vocabulary(self):
+        logger.debug(f'vocabulary(self)')
+        rv = []
+        for dp in self.profiles:
+            if self.profiles[dp] is not None:
+                rv.append(self.profiles[dp].word[1])
+        return rv
+        #return [self.profiles[dp].word[1] for dp in self.profiles]
+
+    def __getitem__(self, key):
+        logger.debug(f'DPWC[{key}]')
+        st = DPW.stem(key)
+        return self.profiles.get(st, None)
+
+    def __len__(self):
+        logger.debug(f'len(self) = {len(self.profiles)}')
+        return len(self.profiles)
 
     def __str__(self):
         txt = ''
