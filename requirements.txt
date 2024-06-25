@@ -1,8 +1,10 @@
 nltk>=3.8.1
+numba>=0.60.0
+pyNNMF>=0.1.3
 joblib>=1.4.2 
 numpy>=1.26.4
 requests>=2.32.3
-scikit-learn>=1.5.0
-pyNNMF>=0.1.3
 kneeliverse>=1.0
 exectimeit>=0.1.1
+PyStemmer>=2.2.0.1
+scikit-learn>=1.5.0

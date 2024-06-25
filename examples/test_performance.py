@@ -27,7 +27,7 @@ import semantic.corpus as corpus
 import exectimeit.timeit as timeit
 
 
-logging.basicConfig(level=logging.DEBUG, format='%(message)s')
+logging.basicConfig(level=logging.INFO, format='%(message)s')
 logger = logging.getLogger(__name__)
 
 

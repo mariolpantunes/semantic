@@ -27,6 +27,10 @@ from typing import Dict, List
 from joblib import Parallel, delayed
 
 
+from numba import jit
+import Stemmer
+
+
 logger = logging.getLogger(__name__)
 
 
@@ -122,6 +126,14 @@ def extract_neighborhood(target_word: str, corpus:List[str], n: int, stemmer, st
     return neighborhood
 
 
+@jit(nopython=True)
+def _dpw_similarity(vector_a:np.ndarray, vector_b:np.ndarray, eps:float) -> float:
+    norm_a = np.linalg.norm(vector_a)
+    norm_b = np.linalg.norm(vector_b)
+
+    return np.dot(vector_a, vector_b)/max((norm_a*norm_b), eps)
+
+
 def dpw_similarity(n_a: dict, n_b: dict) -> float:
     features = set(n_a.keys()) | set(n_b.keys())
     vector_a = np.zeros(len(features))
@@ -135,17 +147,18 @@ def dpw_similarity(n_a: dict, n_b: dict) -> float:
             vector_b[i] = n_b[f]
         i += 1
 
-    norm_a = np.linalg.norm(vector_a)
-    norm_b = np.linalg.norm(vector_b)
-
-    return np.dot(vector_a, vector_b)/max((norm_a*norm_b), math.ulp(1.0))
+    eps = math.ulp(1.0)
+    return _dpw_similarity(vector_a, vector_b, eps)
 
 
 class DPW:
-    stemmer = nltk.stem.snowball.SnowballStemmer(language='english') #nltk.stem.PorterStemmer()
+    #stemmer = nltk.stem.snowball.SnowballStemmer(language='english') #nltk.stem.PorterStemmer()
+    stemmer = Stemmer.Stemmer('english')
+
 
     def stem(term:str)->str:
-        return DPW.stemmer.stem(term)
+        return DPW.stemmer.stemWord(term)
+        #return DPW.stemmer.stem(term)
 
     def __init__(self, word: str, neighborhood: list):
         self.word = (DPW.stem(word), word)
@@ -558,8 +571,8 @@ class DPWCModel:
 
     def similarity(self, w0:str, w1:str):
         logger.debug(f'similarity({w0}, {w1})')
-        if self.continuous:
-           self.fit([w0, w1])
+        #if self.continuous:
+        #   self.fit([w0, w1])
         
         sw0 = DPW.stem(w0)
         sw1 = DPW.stem(w1)
@@ -567,7 +580,7 @@ class DPWCModel:
         if sw0 == sw1:
             return 1.0
         elif self.profiles.get(sw0, None) is None or self.profiles.get(sw1,None) is None:
-            return self.bias
+            return 0.0 #self.bias
         else:
             return self.profiles[sw0].similarity(self.profiles[sw1])
     
