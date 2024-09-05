@@ -24,8 +24,8 @@ from sklearn.cluster import AgglomerativeClustering
 from semantic.corpus import Corpus
 
 from typing import Dict, List
-from joblib import Parallel, delayed
-
+#from joblib import Parallel, delayed
+from functools import lru_cache
 
 from numba import jit
 import Stemmer
@@ -97,7 +97,8 @@ def extract_neighborhood(target_word: str, corpus:List[str], n: int, stemmer, st
     stem_target_word = stemmer(target_word.lower())
     
     # Text Mining Pipeline
-    tokens = Parallel(n_jobs=-1)(delayed(sentences_to_tokens)(s, stem_target_word, stemmer, stop_words, l) for s in corpus)
+    #tokens = Parallel(n_jobs=-1)(delayed(sentences_to_tokens)(s, stem_target_word, stemmer, stop_words, l) for s in corpus)
+    tokens = [sentences_to_tokens(s, stem_target_word, stemmer, stop_words, l) for s in corpus]
     tokens = functools.reduce(operator.iconcat, tokens, [])
 
     # Search for target word
@@ -126,6 +127,7 @@ def extract_neighborhood(target_word: str, corpus:List[str], n: int, stemmer, st
     return neighborhood
 
 
+#TODO: Apply this to more areas of the code
 @jit(nopython=True)
 def _dpw_similarity(vector_a:np.ndarray, vector_b:np.ndarray, eps:float) -> float:
     norm_a = np.linalg.norm(vector_a)
@@ -155,7 +157,7 @@ class DPW:
     #stemmer = nltk.stem.snowball.SnowballStemmer(language='english') #nltk.stem.PorterStemmer()
     stemmer = Stemmer.Stemmer('english')
 
-
+    @lru_cache(maxsize=128)
     def stem(term:str)->str:
         return DPW.stemmer.stemWord(term)
         #return DPW.stemmer.stem(term)
@@ -219,7 +221,7 @@ class DPWC:
         self.names = names
         self.neighborhood = neighborhood
 
-    def _similarity(n_a, a_a, n_b, a_b):
+    def _dpw_similarity(n_a, a_a, n_b, a_b):
         return dpw_similarity(n_a, n_b)*((a_a + a_b)/2.0)
 
     def similarity(self, dpwc: 'DPWC') -> float:
@@ -231,8 +233,9 @@ class DPWC:
             ctx_similarity = []
             for n_a, a_a in self.neighborhood:
                 for n_b, a_b in dpwc.neighborhood:
-                    ctx_similarity.append(DPWC._similarity(n_a, a_a, n_b, a_b))
+                    ctx_similarity.append(DPWC._dpw_similarity(n_a, a_a, n_b, a_b))
             return max(ctx_similarity)
+            #return DPWC._similarity(self.neighborhood, dpwc.neighborhood)
 
     def __str__(self):
         names = pprint.pformat(self.names)
@@ -347,7 +350,8 @@ def latent_analysis(V:np.ndarray, d: int=1, seeds:List[int]=[19, 23, 29, 31, 37,
     # Learn the dimensions in latent space and reconstruct into token space
     k = max(len(V)//d, 1)
 
-    nmf_results = Parallel(n_jobs=-1)(delayed(pynnmf.nmf_mu_kl)(V, k, 100, 0.1, s) for s in seeds)
+    #nmf_results = Parallel(n_jobs=-1)(delayed(pynnmf.nmf_mu_kl)(V, k, 100, 0.1, s) for s in seeds)
+    nmf_results = [pynnmf.nmf_mu_kl(V, k, 100, 0.1, s) for s in seeds]
     nmf_results.sort(key=lambda x:x[3])
     Vr = nmf_results[0][0]
 

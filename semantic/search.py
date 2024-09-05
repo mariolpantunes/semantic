@@ -28,9 +28,11 @@ class CWS:
         total = total_count = 0
         while not done:
             querystring = {'q':query,'pageNumber':page,'pageSize':50,'autoCorrect':True}
-            response = requests.request("GET", self.url, headers=self.headers, params=querystring)
-            
-            if response.status_code == 200:
+            #response = requests.request("GET", self.url, headers=self.headers, params=querystring)
+            response = None
+            status_code = 500
+
+            if status_code == 200:
                 j = response.json()
                 total_count = j["totalCount"]
                 values= j['value']

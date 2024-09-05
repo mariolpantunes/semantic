@@ -22,7 +22,7 @@ from pstats import SortKey, Stats
 
 import semantic.dp as dp
 import semantic.corpus as corpus
-
+import config
 
 import exectimeit.timeit as timeit
 
@@ -57,39 +57,58 @@ def get_file_size(file_name, size_type=SIZE_UNIT.MB):
    return convert_unit(size, size_type)
 
 
-def time_training(terms, corpus_obj, n):
+@timeit.exectime(1)
+def time_training(vocabulary, corpus_obj, n=5):
     model = dp.DPWCModel(corpus=corpus_obj, n=n, c=dp.Cutoff.pareto20, latent=True, k=2)
-    model.fit(terms)
+    model.fit(vocabulary)
     return model
 
+
 @timeit.exectime(1)
-def time_inference(model, vocabulary):
+def time_inference(vocabulary, model):
     for a in vocabulary:
         for b in vocabulary:
             model.predict(a, b)
 
 
 def main(args):
-    model = None
+    vocabulary = ['pH', 'count', 'respiration', 'microphone', 
+    'control', 'domotic', 'magnetic', 'accelerometer', 'ozone', 
+    'flow', 'liquid', 'gps', 'gamma', 'temperature', 'detection', 
+    'gases', 'humidity', 'potable', 'security', 'leakage', 
+    'presence', 'air', 'soil', 'location', 'earthquake', 'tag', 
+    'CO2', 'surveillance', 'health', 'item', 'floods', 'door', 
+    'field', 'CH4', 'speed', 'environment', 'shipment', 'river', 
+    'wind', 'sportsman', 'isobutane', 'road', 'indoor', 'forest', 
+    'pulse', 'moisture', 'industrial', 'water', 'farming', 'fleet', 
+    'passive', 'fall', 'leaf', 'quality', 'condition', 'greenhouse', 
+    'toxic', 'logistic', 'level', 'meteorological', 'noise', 'infrared', 
+    'tracking', 'ultrasound', 'metering', 'intrusion', 'ambient', 'city', 
+    'voltage', 'agriculture', 'explosive', 'patient', 'light', 'offspring', 
+    'vibration', 'snow', 'parking', 'device', 'wetness', 'radiation', 
+    'vibrations', 'fire']
+
+    corpus_obj = corpus.WebCorpus(config.key, 'dataset', 300)
     
-    # Load data model
-    if args.l is not None:
-        logger.info(f'Load semantic model: {args.l}')
-        with open(args.l, 'rb') as input_file:
-            model = pickle.load(input_file)
+    # Compute training time
+    profiler = Profile()
+    profiler.enable()
+    ti, std, model = time_training(vocabulary, corpus_obj)
+    logger.info(f'Training time {ti}±{std}')
+    stats = Stats(profiler).sort_stats('time')
+    stats.print_stats(10)
 
     # Compute inference time
     profiler = Profile()
     profiler.enable()
-    ti, std, _ = time_inference(model, model.vocabulary())
+    ti, std, _ = time_inference(vocabulary, model)
     profiler.disable()
     logger.info(f'Inference time {ti}±{std}')
     stats = Stats(profiler).sort_stats('time')
-    stats.print_stats()
+    stats.print_stats(10)
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Semantic playground - Performance optimization')
-    parser.add_argument('-l', type=str, required=True, help='input model')
     args = parser.parse_args()
     main(args)
