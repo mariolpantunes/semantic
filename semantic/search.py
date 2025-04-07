@@ -7,6 +7,7 @@ __status__ = 'Development'
 
 
 import os
+import gzip
 import logging
 import requests
 
@@ -14,7 +15,39 @@ import requests
 logger = logging.getLogger(__name__)
 
 
-#TODO change to SearxNG instance (maybe instantiate one on IT)
+class SearxNG:
+    def __init__(self):
+        self.url = 'https://search.hrun.mooo.com/'
+    
+    def search(self, query):
+        page = 1
+        snippets = []
+        done = False
+        total = total_count = 0
+        while not done:
+            querystring = {'q':query,'pageno':page,'format':'json', 'language':'en'}
+            response = requests.request("GET", self.url, params=querystring) #headers=self.headers,
+
+            previous_total = 0
+
+            if response.ok:
+                j = response.json()
+                results= j['results']
+                for r in results:
+                    description = r['content']
+                    snippets.append(description)
+                previous_total = total
+                total += len(results)
+            else:
+                done = True
+            page += 1
+            if total == previous_total:
+                done = True
+            logger.debug(f'({page}, {total} {previous_total})')
+
+        return snippets
+
+
 class CWS:
     def __init__(self, key:str):
         self.key = key
@@ -51,7 +84,7 @@ class CWS:
 
 
 class CacheSearch:
-    def __init__(self, ws: CWS, path:str, limit:int=0):
+    def __init__(self, ws: SearxNG, path:str, limit:int=0):
         self.ws = ws
         self.path = path
         self.limit = limit
@@ -62,13 +95,13 @@ class CacheSearch:
         logger.debug(f'Trying to get {filename}')
         if os.path.exists(filename):
             logger.debug('Cache file %s', filename)
-            with open(filename, 'rt', newline='', encoding='utf-8') as file:
+            with gzip.open(filename, 'rt', newline='', encoding='utf-8') as file:
                 snippets = file.readlines()
         else:
             logger.debug('Cache file %s does not exist...', filename)
             snippets=self.ws.search(query)
             logger.debug('Snippets loaded from Search Engine')
-            with open(filename, 'wt', newline='', encoding='utf-8') as file:
+            with gzip.open(filename, 'wt', newline='', encoding='utf-8') as file:
                 file.writelines(snippets)
             logger.debug('Snippets stored in %s', filename)
 
