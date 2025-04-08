@@ -6,6 +6,7 @@ __email__ = 'mariolpantunes@gmail.com'
 __status__ = 'Development'
 
 
+import io
 import os
 import gzip
 import logging
@@ -90,20 +91,20 @@ class CacheSearch:
         self.limit = limit
     
     def search(self, query):
-        filename = f'{self.path}/{query}.csv'
-        snippets = []
+        filename = f'{self.path}/{query}.csv.gz'
         logger.debug(f'Trying to get {filename}')
         if os.path.exists(filename):
-            logger.debug('Cache file %s', filename)
-            with gzip.open(filename, 'rt', newline='', encoding='utf-8') as file:
-                snippets = file.readlines()
+            logger.debug(f'Cache file {filename}')
+            with gzip.open(filename, 'rt', encoding='utf-8') as f:
+                snippets = f.readlines()
         else:
-            logger.debug('Cache file %s does not exist...', filename)
+            logger.debug(f'Cache file {filename} does not exist...')
             snippets=self.ws.search(query)
             logger.debug('Snippets loaded from Search Engine')
-            with gzip.open(filename, 'wt', newline='', encoding='utf-8') as file:
-                file.writelines(snippets)
-            logger.debug('Snippets stored in %s', filename)
+            with gzip.open(filename, 'wt', encoding='utf-8') as f:
+                for s in snippets:
+                    f.write(f'{s}\n')
+            logger.debug(f'Snippets stored in {filename}')
 
         if self.limit>0:
             return snippets[:self.limit]
