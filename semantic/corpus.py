@@ -11,6 +11,7 @@ import semantic.search as search
 from abc import ABC, abstractmethod
 from typing import Dict, List
 
+
 logger = logging.getLogger(__name__)
 
 
@@ -29,9 +30,9 @@ class DummyCorpus(Corpus):
 
 
 class WebCorpus(Corpus):
-    def __init__(self, key: str, path: str, limit: int = 0):
-        cws = search.CWS(key)
-        self.cs = search.CacheSearch(cws, path, limit)
+    def __init__(self, path: str, limit: int = 0):
+        searxng = search.SearxNG()
+        self.cs = search.CacheSearch(searxng, path, limit)
 
     def get(self, term: str):
         return self.cs.search(term)
