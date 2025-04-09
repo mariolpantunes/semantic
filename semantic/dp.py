@@ -171,7 +171,7 @@ def _dpw_similarity(vector_a:np.ndarray, vector_b:np.ndarray, eps:float) -> floa
 
 
 def dpw_similarity(n_a: dict, n_b: dict) -> float:
-    features = set(n_a.keys()) | set(n_b.keys())
+    features = set(n_a) | set(n_b)
     vector_a = np.zeros(len(features))
     vector_b = np.zeros(len(features))
     i = 0
@@ -265,7 +265,7 @@ class DPWC:
 def nmf_optimization(dpw: DPW, Vr: np.ndarray) -> DPW:
     # load names
     #names = dpw.get_names()
-    names = list(dpw.neighborhood.keys())
+    names = list(dpw.neighborhood)
 
     idx_word = names.index(dpw.word)
     new_values = Vr[idx_word, :]
@@ -332,7 +332,7 @@ def rank(array, reverse=False):
 def co_occurrence_matrix(dpw: DPW, dpwm: 'DPWModel'):
     # pre-load all neighboors and remove neighborhood with weak profiles
     
-    for t in dpw.neighborhood.keys():
+    for t in list(dpw.neighborhood):
         # load RAW DPW
         temp_dpw = dpwm.get_RAW_DPW(t)
         if temp_dpw is None:
@@ -340,7 +340,7 @@ def co_occurrence_matrix(dpw: DPW, dpwm: 'DPWModel'):
     
     # reload names from valid profiles only
     #names = dpw.get_names()
-    names = list(dpw.neighborhood.keys())
+    names = list(dpw.neighborhood)
     #print(f'DPW Names: {names}')
     size_names = len(names)
 
@@ -389,7 +389,7 @@ def latent_analysis(V:np.ndarray, d: int=1, seeds:List[int]=[19, 23, 29, 31, 37,
 def learn_dpwc(dpw: DPW, V: np.ndarray, kl:int=0, linkage: str = 'average'):
     # load names and the right index
     #names = dpw.get_names()
-    names = list(dpw.neighborhood.keys())
+    names = list(dpw.neighborhood)
     idx_word = names.index(dpw.word)
     size_names = len(names)
 
@@ -452,7 +452,7 @@ class DPWModel:
         # store the profile in the rigth profile
         if self.latent:
             self.cache[term] = rawDPW
-            for t in rawDPW.neighborhood.keys():
+            for t in rawDPW.neighborhood:
                 if t not in self.cache:
                     self.cache[t] = self._fit_RAW_DPW(t)
             V = co_occurrence_matrix(rawDPW, self)
@@ -558,7 +558,7 @@ class DPWCModel:
         dpw = self.dpws[term]
         logger.debug(f'DPW({term}) {dpw}')
         # train the DPW from the Neighbourhood
-        logger.debug(f'NAMES: {dpw.neighborhood.keys()}')
+        logger.debug(f'NAMES: {list(dpw.neighborhood)}')
         for w in dpw.neighborhood:
             logger.debug(f'NAME {w}')
             if w not in self.dpws:
