@@ -22,7 +22,7 @@ class TestDP(unittest.TestCase):
         dataset={'banana': ['A banana is an elongated, edible fruit – botanically a berry – produced by several kinds of large treelike herbaceous flowering plants in the genus Musa. In some countries, cooking bananas are called plantains, distinguishing them from dessert bananas.'],
         'apple':['An apple is a round, edible fruit produced by an apple tree. Apple trees are cultivated worldwide and are the most widely grown species in the genus Malus. The tree originated in Central Asia, where its wild ancestor, Malus sieversii, is still found.'],
         'peach':['The peach is a deciduous tree first domesticated and cultivated in China. It bears edible juicy fruits with various characteristics, most called peaches and the glossy-skinned, non-fuzzy varieties called nectarines'],
-        'elongate':['The verb elongate means "to make long or longer," and it stems from the Late Latin elongare, "to extend or prolong." When you stretch something out, especially when it\'s longer than it is wide, you can say you elongate it.'],
+        'elongate':['If something is elongated, it is very long and thin, often in an unnatural way. The light from my candle threw his elongated shadow on the walls.'],
         'edible': ['An edible item is any item that is safe for humans to eat.'],
         'fruit': ['Fruits are the mature and ripened ovaries of flowers. The first step in fruit growth is fertilization of the carpel.'],
         'produced': ['The definition of produced is make or manufacture from components or raw materials.'],

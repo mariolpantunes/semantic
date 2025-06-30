@@ -10,7 +10,7 @@ import os
 import csv
 import enum
 import tqdm
-import config
+
 import pickle
 import logging
 import argparse
@@ -22,7 +22,7 @@ from pstats import SortKey, Stats
 
 import semantic.dp as dp
 import semantic.corpus as corpus
-import config
+
 
 import exectimeit.timeit as timeit
 
@@ -57,22 +57,23 @@ def get_file_size(file_name, size_type=SIZE_UNIT.MB):
    return convert_unit(size, size_type)
 
 
-@timeit.exectime(1)
-def time_training(vocabulary, corpus_obj, n=5):
+#@timeit.exectime(1)
+def training(vocabulary, corpus_obj, n=7):
     model = dp.DPWCModel(corpus=corpus_obj, n=n, c=dp.Cutoff.pareto20, latent=True, k=2)
-    model.fit(vocabulary)
+    for term in tqdm.tqdm(vocabulary):
+        model.fit(term)
     return model
 
 
-@timeit.exectime(1)
-def time_inference(vocabulary, model):
+#@timeit.exectime(1)
+def inference(vocabulary, model):
     for a in vocabulary:
         for b in vocabulary:
             model.predict(a, b)
 
 
 def main(args):
-    vocabulary = ['pH', 'count', 'respiration', 'microphone', 
+    vocabulary = ['pH', 'count', 'respiration' , 'microphone', 
     'control', 'domotic', 'magnetic', 'accelerometer', 'ozone', 
     'flow', 'liquid', 'gps', 'gamma', 'temperature', 'detection', 
     'gases', 'humidity', 'potable', 'security', 'leakage', 
@@ -88,22 +89,20 @@ def main(args):
     'vibration', 'snow', 'parking', 'device', 'wetness', 'radiation', 
     'vibrations', 'fire']
 
-    corpus_obj = corpus.WebCorpus(config.key, 'dataset', 300)
+    corpus_obj = corpus.WebCorpus('corpus', 300)
     
     # Compute training time
     profiler = Profile()
     profiler.enable()
-    ti, std, model = time_training(vocabulary, corpus_obj)
-    logger.info(f'Training time {ti}±{std}')
+    model = training(vocabulary, corpus_obj)
     stats = Stats(profiler).sort_stats('time')
-    stats.print_stats(10)
+    stats.print_stats(20)
 
     # Compute inference time
     profiler = Profile()
     profiler.enable()
-    ti, std, _ = time_inference(vocabulary, model)
+    inference(vocabulary, model)
     profiler.disable()
-    logger.info(f'Inference time {ti}±{std}')
     stats = Stats(profiler).sort_stats('time')
     stats.print_stats(10)
 

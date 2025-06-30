@@ -9,7 +9,7 @@ __status__ = 'Development'
 import copy
 import enum
 import math
-import nltk
+import numba
 import pprint
 import logging
 import tempfile
@@ -22,13 +22,18 @@ import kneeliverse.lmethod as lmethod
 
 from sklearn.metrics import silhouette_score
 from sklearn.cluster import AgglomerativeClustering
+
+
 from semantic.corpus import Corpus
-from typing import Dict, List
 from functools import lru_cache
-from numba import jit
 
 
 logger = logging.getLogger(__name__)
+
+#TODO: put in better place
+import nltk
+stop_words = set(nltk.corpus.stopwords.words('english'))
+lemmatizer = nltk.stem.WordNetLemmatizer()
 
 
 class Cutoff(enum.Enum):
@@ -41,11 +46,11 @@ class Cutoff(enum.Enum):
         return self.value
 
 
-def cutoff_pareto20(neighborhood:Dict) -> int:
+def cutoff_pareto20(neighborhood:{}) -> int:
     return int(len(neighborhood)*0.2)
 
 
-def cutoff_pareto80(neighborhood:Dict) -> int:
+def cutoff_pareto80(neighborhood:{}) -> int:
     limit = len(neighborhood)
     neighborhood_size = 0
     for _, v in neighborhood:
@@ -62,7 +67,7 @@ def cutoff_pareto80(neighborhood:Dict) -> int:
     return limit
 
 
-def cutoff_knee(neighborhood:Dict) -> int:
+def cutoff_knee(neighborhood:{}) -> int:
     points = []
     for i in range(len(neighborhood)):
         points.append([i, neighborhood[i][1]])
@@ -71,57 +76,61 @@ def cutoff_knee(neighborhood:Dict) -> int:
     return limit
 
 
-def sentences_to_tokens(s:str, stem_target_word:str, stemmer, stop_words, l:int)->List[str]:
-    temp_tokens = nltk.word_tokenize(s)
-    filtered_tokens = []
-    for w in temp_tokens:
-        wl = w.lower()
-        ws = stemmer(wl)
-        if ws is stem_target_word or (wl not in stop_words and wl.isalpha() and len(wl) >= l):
-            filtered_tokens.append(wl)
-    return filtered_tokens
+def all_equal(iterable):
+    iterator = iter(iterable)
+    
+    try:
+        firstItem = next(iterator)
+    except StopIteration:
+        return True
+        
+    for x in iterator:
+        if x!=firstItem:
+            return False
+    return True
 
 
-def _nltk_pos_tagger(nltk_tag):
-    if nltk_tag.startswith('J'):
-        return nltk.corpus.wordnet.ADJ
-    elif nltk_tag.startswith('V'):
-        return nltk.corpus.wordnet.VERB
-    elif nltk_tag.startswith('N'):
-        return nltk.corpus.wordnet.NOUN
-    elif nltk_tag.startswith('R'):
-        return nltk.corpus.wordnet.ADV
-    else:          
-        return None
-
-
+@lru_cache(maxsize = 1024)
 def _nltk_pos_lemmatizer(token, tag=None):
-    lemmatizer = nltk.stem.WordNetLemmatizer()
     if tag is None:
-        return lemmatizer.lemmatize(token)
+        candidates = [ lemmatizer.lemmatize(token, nltk.corpus.wordnet.ADJ),
+        lemmatizer.lemmatize(token, nltk.corpus.wordnet.VERB),
+        lemmatizer.lemmatize(token, nltk.corpus.wordnet.NOUN),
+        lemmatizer.lemmatize(token, nltk.corpus.wordnet.ADV)
+        ]
+        if all_equal(candidates):
+            return candidates[0]
+        else:
+            candidates = [c for c in candidates if c != token]
+            return min(candidates)
     else:        
         return lemmatizer.lemmatize(token, tag)
 
 
 def _text_pre_processing(txt, m=2):
     if txt is not None:
-        stop_words = set(nltk.corpus.stopwords.words('english'))
-
         tokens = nltk.word_tokenize(txt)
         tokens = [w.lower() for w in tokens]
         tokens = [w for w in tokens if w not in stop_words]
         tokens = [w for w in tokens if w.isalpha()]
         tokens = [w for w in tokens if len(w) > m]
-        tokens = nltk.pos_tag(tokens)
-        tokens = [(t[0], _nltk_pos_tagger(t[1])) for t in tokens]
-        tokens = [_nltk_pos_lemmatizer(w, t) for w,t in tokens]
+        tokens = [_nltk_pos_lemmatizer(w) for w in tokens]
     else:
         tokens = []
     
     return tokens
 
 
-def extract_neighborhood(target_word: str, corpus:List[str], n: int, l:int=3, c: Cutoff = Cutoff.pareto80) -> Dict:
+@numba.jit(nopython=True, fastmath=True)
+def max2d(a,b):
+    if a > b:
+        rv =  a
+    else:
+        rv = b
+    return rv
+
+
+def extract_neighborhood(target_word: str, corpus:[], n: int, l:int=3, c: Cutoff = Cutoff.pareto80) -> {}:
     switcher = {
         Cutoff.knee: cutoff_knee,
         Cutoff.pareto20: cutoff_pareto20,
@@ -143,7 +152,7 @@ def extract_neighborhood(target_word: str, corpus:List[str], n: int, l:int=3, c:
     for i in range(len(tokens)):
         st = tokens[i]
         if st == lemma_target_word:
-            start = max(0, i-n)
+            start = max2d(0, i-n)
             stop = min(len(tokens), i+n+1)
             neighbors = tokens[start:stop]
             for t in neighbors:
@@ -163,32 +172,24 @@ def extract_neighborhood(target_word: str, corpus:List[str], n: int, l:int=3, c:
 
 
 #TODO: Apply this to more areas of the code
-@jit(nopython=True)
+@numba.jit(nopython=True, parallel=True, fastmath=True)
 def _dpw_similarity(vector_a:np.ndarray, vector_b:np.ndarray, eps:float) -> float:
     norm_a = np.linalg.norm(vector_a)
     norm_b = np.linalg.norm(vector_b)
-    return np.dot(vector_a, vector_b)/max((norm_a*norm_b), eps)
+    return np.dot(vector_a, vector_b)/max2d((norm_a*norm_b), eps)
 
 
-def dpw_similarity(n_a: dict, n_b: dict) -> float:
-    features = set(n_a) | set(n_b)
-    vector_a = np.zeros(len(features))
-    vector_b = np.zeros(len(features))
-    i = 0
-    for f in features:
-        if f in n_a:
-            vector_a[i] = n_a[f]
+def dpw_similarity(n_a:{}, n_b:{}) -> float:
+    features = features = set(n_a) | set(n_b)
+    
+    vector_a = np.array([n_a.get(f, 0) for f in features])
+    vector_b = np.array([n_b.get(f, 0) for f in features])
 
-        if f in n_b:
-            vector_b[i] = n_b[f]
-        i += 1
-
-    eps = math.ulp(1.0)
-    return _dpw_similarity(vector_a, vector_b, eps)
+    return _dpw_similarity(vector_a, vector_b, math.ulp(1.0))
 
 
 class DPW:
-    def __init__(self, word: str, neighborhood: list):
+    def __init__(self, word: str, neighborhood:[]):
         self.word = _nltk_pos_lemmatizer(word)
         self.neighborhood = {}
         t = max_value = 0.0
@@ -232,7 +233,7 @@ class DPW:
 
 
 class DPWC:
-    def __init__(self, word: str, names: dict, neighborhood: list):
+    def __init__(self, word:str, names:{}, neighborhood:[]):
         self.word = _nltk_pos_lemmatizer(word)
         self.names = names
         self.neighborhood = neighborhood
@@ -250,7 +251,7 @@ class DPWC:
             for n_a, a_a in self.neighborhood:
                 for n_b, a_b in dpwc.neighborhood:
                     ctx_similarity.append(DPWC._dpw_similarity(n_a, a_a, n_b, a_b))
-            return max(ctx_similarity)
+            return np.max(ctx_similarity)
             #return DPWC._similarity(self.neighborhood, dpwc.neighborhood)
 
     def __str__(self):
@@ -283,7 +284,7 @@ def nmf_optimization(dpw: DPW, Vr: np.ndarray) -> DPW:
 
 
 def build_neighborhoods(names, values, n, labels):
-    if max(labels) > n:
+    if np.max(labels) > n:
         raise Exception(f'Labels {labels} should not have value bigger than n ({n})')
 
     neighborhoods = [[{}, 0] for i in range(n)]
@@ -352,7 +353,7 @@ def co_occurrence_matrix(dpw: DPW, dpwm: 'DPWModel'):
         for j in range(i+1, size_names):
             dpw_i = dpwm.get_RAW_DPW(names[i])
             dpw_j = dpwm.get_RAW_DPW(names[j])
-            value = max(dpw_i[names[j]], dpw_j[names[i]])
+            value = max2d(dpw_i[names[j]], dpw_j[names[i]])
             V[i, j] = value
             V[j, i] = value
     
@@ -361,12 +362,12 @@ def co_occurrence_matrix(dpw: DPW, dpwm: 'DPWModel'):
     return V
 
 
-def latent_analysis(V:np.ndarray, d: int=1, seeds:List[int]=[19, 23, 29, 31, 37, 41, 43]):
+def latent_analysis(V:np.ndarray, d:int=1, seeds:[]=[19, 23, 29, 31, 37, 41, 43]):
     # remove the diagonal (learned by the latent features)
     np.fill_diagonal(V, 0)
 
     # Learn the dimensions in latent space and reconstruct into token space
-    k = max(len(V)//d, 1)
+    k = max2d(len(V)//d, 1)
 
     #nmf_results = Parallel(n_jobs=-1)(delayed(pynnmf.nmf_mu_kl)(V, k, 100, 0.1, s) for s in seeds)
     nmf_results = [pynnmf.nmf_mu_kl(V, k, 100, 0.1, s) for s in seeds]
@@ -376,7 +377,7 @@ def latent_analysis(V:np.ndarray, d: int=1, seeds:List[int]=[19, 23, 29, 31, 37,
     # Recreate the simmetric matrix
     for i in range(0, len(V)-1):
         for j in range(i+1, len(V)):
-            value = max(Vr[i, j], Vr[j, i])
+            value = max2d(Vr[i, j], Vr[j, i])
             Vr[i, j] = value
             Vr[j, i] = value
 
@@ -420,6 +421,7 @@ def learn_dpwc(dpw: DPW, V: np.ndarray, kl:int=0, linkage: str = 'average'):
     return DPWC(dpw.word, names, neighborhoods)
 
 
+#TODO: continuous not working
 class DPWModel:
     def __init__(self, corpus: Corpus, n:int=3, l:int=3,
     c: Cutoff = Cutoff.pareto20, continuous:bool=False,
@@ -434,7 +436,6 @@ class DPWModel:
         self.profiles = {}
         if latent:
             self.cache = {}
-        #self.stop_words = set(nltk.corpus.stopwords.words('english'))
         self.bias = 0.0
 
     def _fit_RAW_DPW(self, term:str):
@@ -477,7 +478,7 @@ class DPWModel:
             old_pairs = ((dp_len-1)**2-(dp_len-1))/2
             self.bias = (self.bias*old_pairs/tot_pairs) + (term_bias/tot_pairs)
 
-    def fit(self, terms:List[str]):
+    def fit(self, terms:[]):
         logger.debug(f'fit({terms})')
         for t in terms:
             # check if the term already exists in the cache
@@ -540,6 +541,7 @@ class DPWModel:
         return self.__str__()
 
 
+#TODO: continuous not working
 class DPWCModel:
     def __init__(self, corpus: Corpus, n: int = 3, l: int = 3, kl:int=0,
     c: Cutoff = Cutoff.pareto20, continuous=False, latent=False, k:int=1):
@@ -587,8 +589,12 @@ class DPWCModel:
             self.bias = (self.bias*old_pairs/tot_pairs) + (term_bias/tot_pairs)
         logger.debug(f'BIAS = {self.bias}')
 
-    def fit(self, terms: List[str]):
+    def fit(self, terms:[]):
         logger.debug(f'DPWCModel fit({terms})')
+        
+        if type(terms) is str:
+            terms = [terms]
+
         for t in terms:
             # check if the term already exists in the 
             lt = _nltk_pos_lemmatizer(t)
@@ -604,11 +610,13 @@ class DPWCModel:
         sw1 = _nltk_pos_lemmatizer(w1)
 
         if sw0 == sw1:
-            return 1.0
+            rv = 1.0
         elif self.profiles.get(sw0, None) is None or self.profiles.get(sw1,None) is None:
-            return self.bias
+            rv =  self.bias
         else:
-            return self.profiles[sw0].similarity(self.profiles[sw1])
+            rv = self.profiles[sw0].similarity(self.profiles[sw1])
+        
+        return rv
     
     def predict(self, w0:str, w1:str):
         logger.debug(f'predict({w0}, {w1})')
@@ -625,8 +633,8 @@ class DPWCModel:
 
     def __getitem__(self, key):
         logger.debug(f'DPWC[{key}]')
-        st = DPW.stem(key)
-        return self.profiles.get(st, None)
+        sw0 = _nltk_pos_lemmatizer(key)
+        return self.profiles.get(sw0, None)
 
     def __len__(self):
         logger.debug(f'len(self) = {len(self.profiles)}')
