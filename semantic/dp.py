@@ -245,14 +245,11 @@ class DPWC:
         if self.word == dpwc.word:
             return 1.0
         else:
-            # Step up with joblib
-            #ctx_similarity = Parallel(n_jobs=2)(delayed(DPWC._similarity)(n_a, a_a, n_b, a_b) for n_a, a_a in self.neighborhood for n_b, a_b in dpwc.neighborhood)
             ctx_similarity = []
             for n_a, a_a in self.neighborhood:
                 for n_b, a_b in dpwc.neighborhood:
                     ctx_similarity.append(DPWC._dpw_similarity(n_a, a_a, n_b, a_b))
             return np.max(ctx_similarity)
-            #return DPWC._similarity(self.neighborhood, dpwc.neighborhood)
 
     def __str__(self):
         names = pprint.pformat(self.names)
@@ -440,7 +437,6 @@ class DPWModel:
 
     def _fit_RAW_DPW(self, term:str):
         logger.debug(f'_fit_RAW_DPW({term})')
-        #term = _nltk_pos_lemmatizer(term)
         # load the data from the corpus
         corpus = self.corpus.get(term)
         # create the original dpw
@@ -487,24 +483,28 @@ class DPWModel:
                 self._fit(lt)
 
     def similarity(self, w0:str, w1:str):
-        w0 = _nltk_pos_lemmatizer(w0)
-        w1 = _nltk_pos_lemmatizer(w1)
+        sw0 = _nltk_pos_lemmatizer(w0)
+        sw1 = _nltk_pos_lemmatizer(w1)
         
         logger.debug(f'similarity({w0}, {w1})')
         if self.continuous:
-            self.fit([w0, w1])
+            if sw0 not in self.profiles:
+                self._fit(sw0)
+            if sw1 not in self.profiles:
+                self._fit(sw1)
 
-        if w0 == w1:
+        if sw0 == sw1:
             return 1.0
-        elif self.profiles.get(w0,None) is None or self.profiles.get(w1, None) is None:
+        elif self.profiles.get(sw0,None) is None or self.profiles.get(sw1, None) is None:
             return self.bias
         else:
-            return self.profiles[w0].similarity(self.profiles[w1])
+            return self.profiles[sw0].similarity(self.profiles[sw1])
     
     def predict(self, w0:str, w1:str):
         logger.debug(f'predict({w0}, {w1})')
         return self.similarity(w0, w1)
     
+    #TODO: check this...
     def get_RAW_DPW(self, term:str):
         logger.debug(f'get_RAW_DPW({term})')
         term = _nltk_pos_lemmatizer(term)
@@ -517,7 +517,6 @@ class DPWModel:
             if self.profiles[dp] is not None:
                 rv.append(self.profiles[dp].word)
         return rv
-        #return [self.profiles[dp].word[1] for dp in self.profiles]
     
     def __getitem__(self, key):
         logger.debug(f'DPW[{key}]')
@@ -541,7 +540,6 @@ class DPWModel:
         return self.__str__()
 
 
-#TODO: continuous not working
 class DPWCModel:
     def __init__(self, corpus: Corpus, n: int = 3, l: int = 3, kl:int=0,
     c: Cutoff = Cutoff.pareto20, continuous=False, latent=False, k:int=1):
@@ -554,7 +552,7 @@ class DPWCModel:
 
     def _fit(self, term:str):
         logger.debug(f'DPWCModel _fit({term})')
-        #term = _nltk_pos_lemmatizer(term)
+        
         # train the DPW
         self.dpws._fit(term)
         dpw = self.dpws[term]
@@ -603,11 +601,15 @@ class DPWCModel:
 
     def similarity(self, w0:str, w1:str):
         logger.debug(f'similarity({w0}, {w1})')
-        #if self.continuous:
-        #   self.fit([w0, w1])
         
         sw0 = _nltk_pos_lemmatizer(w0)
         sw1 = _nltk_pos_lemmatizer(w1)
+        
+        if self.continuous:
+            if sw0 not in self.profiles:
+                self._fit(sw0)
+            if sw1 not in self.profiles:
+                self._fit(sw1)
 
         if sw0 == sw1:
             rv = 1.0
@@ -629,7 +631,6 @@ class DPWCModel:
             if self.profiles[dp] is not None:
                 rv.append(self.profiles[dp].word)
         return rv
-        #return [self.profiles[dp].word[1] for dp in self.profiles]
 
     def __getitem__(self, key):
         logger.debug(f'DPWC[{key}]')

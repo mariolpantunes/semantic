@@ -32,6 +32,6 @@ setup(
     packages=find_packages(),
     cmdclass={'download_nltk': DownloadNLTK},
     install_requires=['nltk>=3.9.1', 'numpy~=2.2.0', 'requests>=2.32.3', 'scikit-learn>=1.5.2', 
-    'joblib>=1.4.2', 'pyNNMF>=0.1.3', 'kneeliverse>=1.0', 'numba>=0.61.0'],
+    'joblib>=1.4.2', 'pyNNMF>=0.1.4', 'kneeliverse>=1.0', 'numba>=0.61.0'],
     setup_requires=['nltk>=3.9.1']
 )
