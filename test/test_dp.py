@@ -119,7 +119,7 @@ class TestDP(unittest.TestCase):
         model.fit(self.terms)
         result = model.similarity('banana', 'mango')
         desired = 0.06935133872241445
-        self.assertAlmostEqual(result, desired, 2)
+        self.assertAlmostEqual(result, desired, 2)       
 
 
 if __name__ == '__main__':

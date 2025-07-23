@@ -30,6 +30,7 @@ from functools import lru_cache
 
 logger = logging.getLogger(__name__)
 
+
 #TODO: put in better place
 import nltk
 stop_words = set(nltk.corpus.stopwords.words('english'))
@@ -165,8 +166,9 @@ def extract_neighborhood(target_word: str, corpus:[], n: int, l:int=3, c: Cutoff
     neighborhood.sort(key=lambda tup: tup[1], reverse=True)
 
     # Reduce the size of the vector
-    limit = switcher[c](neighborhood)
-    neighborhood = neighborhood[:limit]
+    if len(neighborhood) > 0:
+        limit = switcher[c](neighborhood)
+        neighborhood = neighborhood[:limit]
 
     return neighborhood
 
