@@ -191,7 +191,7 @@ def dpw_similarity(n_a:{}, n_b:{}) -> float:
 
 
 class DPW:
-    def __init__(self, word: str, neighborhood:[]):
+    def __init__(self, word:str, neighborhood:[]):
         self.word = _nltk_pos_lemmatizer(word)
         self.neighborhood = {}
         t = max_value = 0.0
@@ -212,7 +212,7 @@ class DPW:
             for k in self.neighborhood:
                 self.neighborhood[k] /= t
 
-    def similarity(self, dpw: 'DPW') -> float:
+    def similarity(self, dpw:'DPW') -> float:
         if self.word == dpw.word:
             return 1.0
         else:
@@ -223,6 +223,12 @@ class DPW:
             return self.neighborhood[key]
         else:
             return 0
+    
+    def __iter__(self):
+        yield from self.neighborhood.keys()
+    
+    def __contains__(self, key):
+        return key in self.neighborhood
 
     def __len__(self):
         return len(self.neighborhood)
@@ -253,6 +259,24 @@ class DPWC:
                     ctx_similarity.append(DPWC._dpw_similarity(n_a, a_a, n_b, a_b))
             return np.max(ctx_similarity)
 
+    def __getitem__(self, key):
+        if key in self.neighborhood:
+            return self.neighborhood[key]
+        else:
+            return 0
+
+    def __iter__(self):
+        terms = [k for d,_ in self.neighborhood for k in d.keys()]
+        yield from terms
+    
+    def __contains__(self, key):
+        terms = [k for d,_ in self.neighborhood for k in d.keys()]
+        return key in terms
+
+    def __len__(self):
+        terms = [k for d,_ in self.neighborhood for k in d.keys()]
+        return len(terms)
+
     def __str__(self):
         names = pprint.pformat(self.names)
         neighborhood = pprint.pformat(self.neighborhood)
@@ -266,6 +290,7 @@ def nmf_optimization(dpw: DPW, Vr: np.ndarray) -> DPW:
     # load names
     #names = dpw.get_names()
     names = list(dpw.neighborhood)
+    #print(f'Names = {names}')
 
     idx_word = names.index(dpw.word)
     new_values = Vr[idx_word, :]
@@ -273,7 +298,7 @@ def nmf_optimization(dpw: DPW, Vr: np.ndarray) -> DPW:
     # update DPW
     new_neighborhood = {}
     for i in range(len(names)):
-        new_neighborhood[names[i][0]] = new_values[i]
+        new_neighborhood[names[i]] = new_values[i]
 
     # Create new DPW
     new_dpw = copy.copy(dpw)
@@ -386,7 +411,7 @@ def latent_analysis(V:np.ndarray, d:int=1, seeds:[]=[19, 23, 29, 31, 37, 41, 43]
     return Vr
 
 
-def learn_dpwc(dpw: DPW, V: np.ndarray, kl:int=0, linkage: str = 'average'):
+def learn_dpwc(dpw:DPW, V:np.ndarray, kl:int=0, linkage:str = 'average'):
     # load names and the right index
     #names = dpw.get_names()
     names = list(dpw.neighborhood)
@@ -419,8 +444,6 @@ def learn_dpwc(dpw: DPW, V: np.ndarray, kl:int=0, linkage: str = 'average'):
     # Build DPWCs
     return DPWC(dpw.word, names, neighborhoods)
 
-
-#TODO: continuous not working
 class DPWModel:
     def __init__(self, corpus: Corpus, n:int=3, l:int=3,
     c: Cutoff = Cutoff.pareto20, continuous:bool=False,
@@ -448,6 +471,9 @@ class DPWModel:
     def _fit(self, term:str):
         logger.debug(f'_fit({term})')
         rawDPW = self._fit_RAW_DPW(term)
+
+        #print(f'RAW DPW\n{rawDPW}')
+
         # store the profile in the rigth profile
         if self.latent:
             self.cache[term] = rawDPW
@@ -457,19 +483,20 @@ class DPWModel:
             V = co_occurrence_matrix(rawDPW, self)
             Vr = latent_analysis(V, d = self.k)
             self.profiles[term] = nmf_optimization(rawDPW, Vr)
+            #print(f'NMF\n{self.profiles[term]}')
         else:
             self.profiles[term] = rawDPW
         
-        # compute the bias
+        # compute the biasrv.append(self.profiles[dp].word)
         dp_len = len(self)
         if dp_len == 1:
             self.bias = 0.5
         elif dp_len == 2:
-            w0, w1 = self.vocabulary()
+            w0, w1 = self.vocabulary
             self.bias = self.similarity(w0, w1)
         else:
             term_bias = 0.0
-            for w in self.vocabulary():
+            for w in self.vocabulary:
                 if w != term:
                     term_bias += self.similarity(term, w)
             tot_pairs = (dp_len**2-dp_len)/2
@@ -481,6 +508,7 @@ class DPWModel:
         for t in terms:
             # check if the term already exists in the cache
             lt = _nltk_pos_lemmatizer(t)
+            #print(f'Fit token {lt}')
             if lt not in self.profiles:
                 self._fit(lt)
 
@@ -512,12 +540,30 @@ class DPWModel:
         term = _nltk_pos_lemmatizer(term)
         return self.cache.get(term, None) if self.latent else self.profiles.get(term, None)
     
+    @property
     def vocabulary(self):
         logger.debug(f'vocabulary(self)')
         rv = []
         for dp in self.profiles:
             if self.profiles[dp] is not None:
                 rv.append(self.profiles[dp].word)
+        return rv
+    
+    @property
+    def profile_length(self):
+        logger.debug(f'profile_length(self)')
+        size = 0.0
+        for k in self.profiles:
+            print(self.profiles[k])
+    
+    @property
+    def describe(self):
+        logger.debug(f'describe(self)')
+        rv = {}
+        for dp in self.profiles:
+            if self.profiles[dp] is not None:
+                d = self.profiles[dp]
+                rv[self.profiles[dp].word] = set([t for t in d])
         return rv
     
     def __getitem__(self, key):
@@ -577,11 +623,11 @@ class DPWCModel:
         if dp_len == 1:
             self.bias = 0.5
         elif dp_len == 2:
-            w0, w1 = self.vocabulary()
+            w0, w1 = self.vocabulary
             self.bias = self.similarity(w0, w1)
         else:
             term_bias = 0.0
-            for w in self.vocabulary():
+            for w in self.vocabulary:
                 if w != term:
                     term_bias += self.similarity(term, w)
             tot_pairs = (dp_len**2-dp_len)/2
@@ -626,12 +672,29 @@ class DPWCModel:
         logger.debug(f'predict({w0}, {w1})')
         return self.similarity(w0, w1)
     
+    @property
     def vocabulary(self):
         logger.debug(f'vocabulary(self)')
         rv = []
         for dp in self.profiles:
             if self.profiles[dp] is not None:
                 rv.append(self.profiles[dp].word)
+        return rv
+
+    @property
+    def profile_length(self):
+        size = 0.0
+        for k in self.profiles:
+            print(self.profiles[k])
+
+    @property
+    def describe(self):
+        logger.debug(f'describe(self)')
+        rv = {}
+        for dp in self.profiles:
+            if self.profiles[dp] is not None:
+                d = self.profiles[dp]
+                rv[self.profiles[dp].word] = set([t for t in d])
         return rv
 
     def __getitem__(self, key):

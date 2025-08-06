@@ -71,20 +71,20 @@ class TestDP(unittest.TestCase):
         model = dp.DPWModel(self.corpus, l=0, c=dp.Cutoff.none, latent=True)
         model.fit(self.terms)
         result = model.similarity('banana', 'apple')
-        desired = 0.3762209893173586
+        desired = 0.14852448235972573
         self.assertAlmostEqual(result, desired, 2)
     
     def test_dp_03(self):
         model = dp.DPWModel(self.corpus, l=0, c=dp.Cutoff.none, latent=True)
         model.fit(self.terms)
-        result = model.vocabulary()
+        result = model.vocabulary
         self.assertEqual(result, self.terms)
 
     def test_dp_04(self):
         model = dp.DPWModel(self.corpus, l=0, c=dp.Cutoff.none, latent=True)
         model.fit(self.terms)
         result = model.similarity('banana', 'mango')
-        desired = 0.48396088292426653
+        desired = 0.11917101198033106
         self.assertAlmostEqual(result, desired, 2)
     
     def test_dp_05(self):
@@ -111,7 +111,7 @@ class TestDP(unittest.TestCase):
     def test_dp_08(self):
         model = dp.DPWCModel(self.corpus, l=0, c=dp.Cutoff.none, latent=True)
         model.fit(self.terms)
-        result = model.vocabulary()
+        result = model.vocabulary
         self.assertEqual(result, self.terms)
     
     def test_dp_09(self):
@@ -119,7 +119,49 @@ class TestDP(unittest.TestCase):
         model.fit(self.terms)
         result = model.similarity('banana', 'mango')
         desired = 0.06935133872241445
-        self.assertAlmostEqual(result, desired, 2)       
+        self.assertAlmostEqual(result, desired, 2)
+
+    def test_dp_10(self):
+        model1 = dp.DPWModel(self.corpus, l=0, c=dp.Cutoff.none, latent=False)
+        model1.fit(self.terms)
+
+        model2 = dp.DPWModel(self.corpus, l=0, c=dp.Cutoff.none, latent=True)
+        model2.fit(self.terms)
+
+        self.assertEqual(model1.vocabulary, model2.vocabulary)
+    
+    def test_dp_11(self):
+        model1 = dp.DPWCModel(self.corpus, l=0, c=dp.Cutoff.none, latent=False)
+        model1.fit(self.terms)
+
+        model2 = dp.DPWCModel(self.corpus, l=0, c=dp.Cutoff.none, latent=True)
+        model2.fit(self.terms)
+
+        self.assertEqual(model1.vocabulary, model2.vocabulary)
+
+    def test_dp_12(self):
+        model1 = dp.DPWModel(self.corpus, l=0, c=dp.Cutoff.none, latent=False)
+        model1.fit(self.terms)
+
+        model2 = dp.DPWModel(self.corpus, l=0, c=dp.Cutoff.none, latent=True)
+        model2.fit(self.terms)
+
+        self.assertEqual(model1.describe, model2.describe)
+
+    def test_dp_13(self):
+        model1 = dp.DPWCModel(self.corpus, l=0, c=dp.Cutoff.none, latent=False)
+        model1.fit(self.terms)
+
+        model2 = dp.DPWCModel(self.corpus, l=0, c=dp.Cutoff.none, latent=True)
+        model2.fit(self.terms)
+
+        self.assertEqual(model1.describe, model2.describe)
+    
+    def test_dp_14(self):
+        model = dp.DPWModel(self.corpus, l=0, c=dp.Cutoff.none, latent=True)
+        model.fit(self.terms)
+        #print(f'DPW Model:\n{model}')
+        #model.profile_length
 
 
 if __name__ == '__main__':
