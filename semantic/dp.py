@@ -260,10 +260,10 @@ class DPWC:
             return np.max(ctx_similarity)
 
     def __getitem__(self, key):
-        if key in self.neighborhood:
-            return self.neighborhood[key]
-        else:
-            return 0
+        for d,_ in self.neighborhood:
+            if key in d:
+                return d[key]
+        return 0
 
     def __iter__(self):
         terms = [k for d,_ in self.neighborhood for k in d.keys()]
@@ -554,7 +554,8 @@ class DPWModel:
         logger.debug(f'profile_length(self)')
         size = 0.0
         for k in self.profiles:
-            print(self.profiles[k])
+            size += len(self.profiles[k])
+        return int(np.median(size))
     
     @property
     def describe(self):
@@ -683,9 +684,11 @@ class DPWCModel:
 
     @property
     def profile_length(self):
+        logger.debug(f'profile_length(self)')
         size = 0.0
         for k in self.profiles:
-            print(self.profiles[k])
+            size += len(self.profiles[k])
+        return int(np.median(size))
 
     @property
     def describe(self):

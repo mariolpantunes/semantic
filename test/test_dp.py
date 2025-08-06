@@ -160,8 +160,14 @@ class TestDP(unittest.TestCase):
     def test_dp_14(self):
         model = dp.DPWModel(self.corpus, l=0, c=dp.Cutoff.none, latent=True)
         model.fit(self.terms)
-        #print(f'DPW Model:\n{model}')
-        #model.profile_length
+    
+        self.assertEqual(model.profile_length, 28)
+    
+    def test_dp_15(self):
+        model = dp.DPWCModel(self.corpus, l=0, c=dp.Cutoff.none, latent=True)
+        model.fit(self.terms)
+    
+        self.assertEqual(model.profile_length, 28)
 
 
 if __name__ == '__main__':
